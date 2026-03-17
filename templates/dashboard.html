@@ -894,12 +894,16 @@
         }
 
         .add-student-row {
-            display: flex;
-            gap: 8px;
+            position: relative;
             margin-top: 16px;
         }
 
-        .add-student-row input {
+        .add-student-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .add-student-row input[type="text"] {
             flex: 1;
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -910,8 +914,31 @@
             font-size: 13px;
             outline: none;
         }
-        .add-student-row input:focus { border-color: var(--accent-blue); }
-        .add-student-row input::placeholder { color: var(--text-muted); }
+        .add-student-row input[type="text"]:focus { border-color: var(--accent-blue); }
+        .add-student-row input[type="text"]::placeholder { color: var(--text-muted); }
+
+        .search-results {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 8px; margin-top: 4px; max-height: 220px;
+            overflow-y: auto; z-index: 10; display: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        .search-results.show { display: block; }
+        .search-result-item {
+            padding: 10px 14px; cursor: pointer; font-size: 13px;
+            color: var(--text-primary); transition: background 0.15s;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .search-result-item:hover { background: rgba(59, 130, 246, 0.1); }
+        .search-result-item .result-name { font-weight: 500; }
+        .search-result-item .result-role { font-size: 11px; color: var(--text-muted); }
+        .search-result-item.already-added { opacity: 0.4; pointer-events: none; }
+        .search-result-item.already-added::after {
+            content: 'Added'; font-size: 10px; color: var(--accent-emerald);
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .search-loading { padding: 12px 14px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
         .btn-add {
             padding: 10px 18px;
@@ -1285,8 +1312,11 @@
             <div class="modal-section active" id="modalStudents">
                 <div id="studentList"></div>
                 <div class="add-student-row">
-                    <input type="text" id="newStudentInput" placeholder="Enter student name..." onkeydown="if(event.key==='Enter')addStudent()">
-                    <button class="btn-add" onclick="addStudent()">Add</button>
+                    <div class="add-student-input-row">
+                        <input type="text" id="newStudentInput" placeholder="Search for a student..." autocomplete="off" oninput="searchStudents(this.value)" onkeydown="handleSearchKeydown(event)">
+                        <button class="btn-add" onclick="addStudent()">Add</button>
+                    </div>
+                    <div class="search-results" id="searchResults"></div>
                 </div>
             </div>
             <!-- Groups Section -->
@@ -1862,13 +1892,85 @@
         `).join('');
     }
 
+    let searchTimeout = null;
+    let searchHighlightIndex = -1;
+    let lastSearchResults = [];
+
     async function addStudent() {
         const input = document.getElementById('newStudentInput');
         const name = input.value.trim();
         if (!name) return;
-        students.push(name);
+        if (!students.includes(name)) students.push(name);
         input.value = '';
+        hideSearchResults();
         await saveStudents();
+    }
+
+    async function addStudentFromSearch(name, sourcedId) {
+        if (students.includes(name)) return;
+        students.push(name);
+        document.getElementById('newStudentInput').value = '';
+        hideSearchResults();
+        await saveStudents();
+    }
+
+    async function searchStudents(query) {
+        query = query.trim();
+        const resultsEl = document.getElementById('searchResults');
+        if (query.length < 2) { hideSearchResults(); return; }
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async () => {
+            resultsEl.innerHTML = '<div class="search-loading">Searching TimeBack...</div>';
+            resultsEl.classList.add('show');
+            try {
+                const res = await fetch('/api/search-students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query }),
+                });
+                const data = await res.json();
+                lastSearchResults = data.results || [];
+                searchHighlightIndex = -1;
+                if (!lastSearchResults.length) {
+                    resultsEl.innerHTML = '<div class="search-loading">No students found for "' + query + '"</div>';
+                } else {
+                    renderSearchResults();
+                }
+            } catch (e) {
+                resultsEl.innerHTML = '<div class="search-loading">Search failed</div>';
+            }
+        }, 300);
+    }
+
+    function renderSearchResults() {
+        const resultsEl = document.getElementById('searchResults');
+        resultsEl.innerHTML = lastSearchResults.map((r, i) => {
+            const alreadyAdded = students.includes(r.name);
+            const highlighted = i === searchHighlightIndex ? 'background:rgba(59,130,246,0.15);' : '';
+            return `<div class="search-result-item${alreadyAdded ? ' already-added' : ''}" style="${highlighted}" onclick="addStudentFromSearch('${r.name.replace(/'/g, "\\'")}', '${r.sourcedId}')">
+                <span class="result-name">${r.name}</span>
+                ${alreadyAdded ? '' : '<span class="result-role">student</span>'}
+            </div>`;
+        }).join('');
+        resultsEl.classList.add('show');
+    }
+
+    function handleSearchKeydown(e) {
+        if (!lastSearchResults.length) { if (e.key === 'Enter') addStudent(); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); searchHighlightIndex = Math.min(searchHighlightIndex + 1, lastSearchResults.length - 1); renderSearchResults(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); searchHighlightIndex = Math.max(searchHighlightIndex - 1, -1); renderSearchResults(); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (searchHighlightIndex >= 0) { const r = lastSearchResults[searchHighlightIndex]; addStudentFromSearch(r.name, r.sourcedId); }
+            else if (lastSearchResults.length === 1) { const r = lastSearchResults[0]; addStudentFromSearch(r.name, r.sourcedId); }
+            else addStudent();
+        } else if (e.key === 'Escape') hideSearchResults();
+    }
+
+    function hideSearchResults() {
+        document.getElementById('searchResults').classList.remove('show');
+        lastSearchResults = [];
+        searchHighlightIndex = -1;
     }
 
     async function removeStudent(index) {

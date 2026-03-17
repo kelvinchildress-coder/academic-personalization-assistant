@@ -402,20 +402,50 @@
         }
         #tb-dash-overlay .student-checkbox-item:hover { background: rgba(255,255,255,0.03); }
         #tb-dash-overlay .student-checkbox-item input[type="checkbox"] { accent-color: var(--accent-blue); }
-        #tb-dash-overlay .add-student-row { display: flex; gap: 8px; margin-top: 16px; }
-        #tb-dash-overlay .add-student-row input {
+        #tb-dash-overlay .add-student-row { position: relative; margin-top: 16px; }
+        #tb-dash-overlay .add-student-input-row { display: flex; gap: 8px; }
+        #tb-dash-overlay .add-student-row input[type="text"] {
             flex: 1; background: var(--bg-card); border: 1px solid var(--border);
             color: var(--text-primary); padding: 10px 14px; border-radius: 8px;
             font-family: inherit; font-size: 13px; outline: none;
         }
-        #tb-dash-overlay .add-student-row input:focus { border-color: var(--accent-blue); }
-        #tb-dash-overlay .add-student-row input::placeholder { color: var(--text-muted); }
+        #tb-dash-overlay .add-student-row input[type="text"]:focus { border-color: var(--accent-blue); }
+        #tb-dash-overlay .add-student-row input[type="text"]::placeholder { color: var(--text-muted); }
         #tb-dash-overlay .btn-add {
             padding: 10px 18px; border-radius: 8px; border: none;
             background: var(--accent-blue); color: white; font-size: 13px;
             font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s;
+            white-space: nowrap;
         }
         #tb-dash-overlay .btn-add:hover { background: #2563eb; }
+        #tb-dash-overlay .search-results {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 8px; margin-top: 4px; max-height: 220px;
+            overflow-y: auto; z-index: 10; display: none;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+        #tb-dash-overlay .search-results.show { display: block; }
+        #tb-dash-overlay .search-result-item {
+            padding: 10px 14px; cursor: pointer; font-size: 13px;
+            color: var(--text-primary); transition: background 0.15s;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #tb-dash-overlay .search-result-item:hover { background: rgba(59, 130, 246, 0.1); }
+        #tb-dash-overlay .search-result-item .result-name { font-weight: 500; }
+        #tb-dash-overlay .search-result-item .result-role {
+            font-size: 11px; color: var(--text-muted); text-transform: capitalize;
+        }
+        #tb-dash-overlay .search-result-item.already-added {
+            opacity: 0.4; pointer-events: none;
+        }
+        #tb-dash-overlay .search-result-item.already-added::after {
+            content: 'Added'; font-size: 10px; color: var(--accent-emerald);
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        #tb-dash-overlay .search-loading {
+            padding: 12px 14px; font-size: 12px; color: var(--text-muted); text-align: center;
+        }
         #tb-dash-overlay .loading-overlay {
             position: fixed; inset: 0; background: rgba(10, 14, 26, 0.85);
             backdrop-filter: blur(4px); z-index: 1000003; display: none;
@@ -621,8 +651,11 @@
                     <div class="modal-section active" id="modalStudents">
                         <div id="studentList"></div>
                         <div class="add-student-row">
-                            <input type="text" id="newStudentInput" placeholder="Enter student name..." onkeydown="if(event.key==='Enter')addStudent()">
-                            <button class="btn-add" onclick="addStudent()">Add</button>
+                            <div class="add-student-input-row">
+                                <input type="text" id="newStudentInput" placeholder="Search for a student..." autocomplete="off" oninput="searchStudents(this.value)" onkeydown="handleSearchKeydown(event)">
+                                <button class="btn-add" onclick="addStudent()">Add</button>
+                            </div>
+                            <div class="search-results" id="searchResults"></div>
                         </div>
                     </div>
                     <div class="modal-section" id="modalGroups">
@@ -1202,13 +1235,122 @@
         }).join('');
     }
 
+    var searchTimeout = null;
+    var searchHighlightIndex = -1;
+    var lastSearchResults = [];
+
     function addStudent() {
         var input = document.getElementById('newStudentInput');
         var name = input.value.trim();
         if (!name) return;
-        students.push(name);
+        if (students.indexOf(name) === -1) {
+            students.push(name);
+        }
         input.value = '';
+        hideSearchResults();
         saveStudents();
+    }
+
+    function addStudentFromSearch(name, sourcedId) {
+        if (students.indexOf(name) !== -1) return;
+        students.push(name);
+        if (sourcedId) {
+            var ids = getStudentIds();
+            ids[name] = sourcedId;
+            saveStudentIds(ids);
+        }
+        document.getElementById('newStudentInput').value = '';
+        hideSearchResults();
+        saveStudents();
+    }
+
+    async function searchStudents(query) {
+        query = query.trim();
+        var resultsEl = document.getElementById('searchResults');
+        if (query.length < 2) {
+            hideSearchResults();
+            return;
+        }
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(async function() {
+            resultsEl.innerHTML = '<div class="search-loading">Searching TimeBack...</div>';
+            resultsEl.classList.add('show');
+            try {
+                var resp = await fetch('/_serverFn/src_features_learning-metrics_components_fast-student-search_actions_client_ts--fetchUsersByRole_createServerFn_handler?createServerFn', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: { roles: ['student'], search: query, limit: { '$undefined': 0 }, orgSourcedIds: [] },
+                        context: {},
+                    }),
+                });
+                var data = await resp.json();
+                var results = data.result || [];
+                lastSearchResults = results.map(function(user) {
+                    return {
+                        name: ((user.givenName || '') + ' ' + (user.familyName || '')).trim(),
+                        sourcedId: user.sourcedId,
+                        role: user.role || 'student'
+                    };
+                });
+                searchHighlightIndex = -1;
+                if (!lastSearchResults.length) {
+                    resultsEl.innerHTML = '<div class="search-loading">No students found for "' + query + '"</div>';
+                } else {
+                    renderSearchResults();
+                }
+            } catch (e) {
+                resultsEl.innerHTML = '<div class="search-loading">Search failed \u2014 make sure you are logged into TimeBack</div>';
+            }
+        }, 300);
+    }
+
+    function renderSearchResults() {
+        var resultsEl = document.getElementById('searchResults');
+        resultsEl.innerHTML = lastSearchResults.map(function(r, i) {
+            var alreadyAdded = students.indexOf(r.name) !== -1;
+            var highlighted = i === searchHighlightIndex ? 'background:rgba(59,130,246,0.15);' : '';
+            return '<div class="search-result-item' + (alreadyAdded ? ' already-added' : '') + '" style="' + highlighted + '" onclick="addStudentFromSearch(\'' + r.name.replace(/'/g, "\\'") + '\', \'' + r.sourcedId + '\')">' +
+                '<span class="result-name">' + r.name + '</span>' +
+                (alreadyAdded ? '' : '<span class="result-role">' + r.role + '</span>') +
+                '</div>';
+        }).join('');
+        resultsEl.classList.add('show');
+    }
+
+    function handleSearchKeydown(e) {
+        if (!lastSearchResults.length) {
+            if (e.key === 'Enter') addStudent();
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            searchHighlightIndex = Math.min(searchHighlightIndex + 1, lastSearchResults.length - 1);
+            renderSearchResults();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            searchHighlightIndex = Math.max(searchHighlightIndex - 1, -1);
+            renderSearchResults();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (searchHighlightIndex >= 0 && searchHighlightIndex < lastSearchResults.length) {
+                var r = lastSearchResults[searchHighlightIndex];
+                addStudentFromSearch(r.name, r.sourcedId);
+            } else if (lastSearchResults.length === 1) {
+                var r2 = lastSearchResults[0];
+                addStudentFromSearch(r2.name, r2.sourcedId);
+            } else {
+                addStudent();
+            }
+        } else if (e.key === 'Escape') {
+            hideSearchResults();
+        }
+    }
+
+    function hideSearchResults() {
+        document.getElementById('searchResults').classList.remove('show');
+        lastSearchResults = [];
+        searchHighlightIndex = -1;
     }
 
     function removeStudent(index) {
@@ -1644,6 +1786,9 @@
     window.openSettings = openSettings;
     window.switchModalTab = switchModalTab;
     window.addStudent = addStudent;
+    window.addStudentFromSearch = addStudentFromSearch;
+    window.searchStudents = searchStudents;
+    window.handleSearchKeydown = handleSearchKeydown;
     window.removeStudent = removeStudent;
     window.createGroup = createGroup;
     window.deleteGroup = deleteGroup;

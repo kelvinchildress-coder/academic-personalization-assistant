@@ -494,6 +494,37 @@ def cached_data():
     return jsonify(None)
 
 
+@app.route("/api/search-students", methods=["POST"])
+def search_students():
+    """Search TimeBack for students by name."""
+    query = (request.get_json() or {}).get("query", "").strip()
+    if len(query) < 2:
+        return jsonify({"results": []})
+
+    cookies = get_auth_cookies()
+    if not cookies:
+        return jsonify({"results": [], "error": "No auth cookies available"})
+
+    url = f"{TIMEBACK_BASE}/_serverFn/src_features_learning-metrics_components_fast-student-search_actions_client_ts--fetchUsersByRole_createServerFn_handler?createServerFn"
+    payload = {
+        "data": {"roles": ["student"], "search": query, "limit": {"$undefined": 0}, "orgSourcedIds": []},
+        "context": {},
+    }
+
+    try:
+        resp = http_requests.post(url, json=payload, headers=api_headers(cookies), timeout=15)
+        resp.raise_for_status()
+        users = resp.json().get("result", [])
+        results = []
+        for user in users:
+            full_name = f"{user.get('givenName', '')} {user.get('familyName', '')}".strip()
+            results.append({"name": full_name, "sourcedId": user.get("sourcedId", "")})
+        return jsonify({"results": results})
+    except Exception as e:
+        logger.error(f"Student search failed: {e}")
+        return jsonify({"results": [], "error": str(e)})
+
+
 @app.route("/api/status", methods=["GET"])
 def status():
     """Check if Chrome debug is reachable and TimeBack session is active."""
