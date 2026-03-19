@@ -288,6 +288,18 @@ def process_api_metrics(student_name, metrics_data, date_str):
         minutes = math.ceil(active_secs / 60) if active_secs else 0
         accuracy = round((correct / total_q) * 100) if total_q > 0 else 0
 
+        # Detect Alpha Test — check for test-related keys in subject data
+        has_test = False
+        extra_keys = set(subject_data.keys()) - {"activityMetrics", "timeSpentMetrics"}
+        for key in extra_keys:
+            if "test" in key.lower():
+                has_test = True
+                logger.info(f"Test detected for {student_name} in {subject_name}: {key}={subject_data[key]}")
+            else:
+                logger.info(f"Extra key in {student_name} > {subject_name}: {key}={subject_data[key]}")
+        if activity.get("alphaTestTaken") or activity.get("testTaken") or activity.get("hasTest"):
+            has_test = True
+
         total_xp += xp
         total_minutes += minutes
         total_correct += correct
@@ -300,6 +312,7 @@ def process_api_metrics(student_name, metrics_data, date_str):
             "minutes": minutes,
             "mastered": mastered,
             "no_data": xp == 0 and minutes == 0 and accuracy == 0,
+            "has_test": has_test,
         })
 
     overall_accuracy = round((total_correct / total_questions) * 100) if total_questions > 0 else 0
@@ -504,6 +517,25 @@ def cached_data():
     if DATA_FILE.exists():
         return jsonify(json.loads(DATA_FILE.read_text()))
     return jsonify(None)
+
+
+@app.route("/api/debug-raw", methods=["POST"])
+def debug_raw():
+    """Return raw API response for a student on a date — for inspecting data structure."""
+    data = request.get_json() or {}
+    student_name = data.get("student", "")
+    date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+
+    cookies = get_auth_cookies()
+    if not cookies:
+        return jsonify({"error": "No auth cookies"})
+
+    sid = resolve_student_id(student_name, cookies)
+    if not sid:
+        return jsonify({"error": f"Could not find student: {student_name}"})
+
+    metrics = fetch_activity_metrics(sid, date_str, cookies)
+    return jsonify({"student": student_name, "date": date_str, "raw": metrics})
 
 
 @app.route("/api/search-students", methods=["POST"])

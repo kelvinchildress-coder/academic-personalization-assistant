@@ -248,6 +248,19 @@
         }
         #tb-dash-overlay .subject-row:last-child { border-bottom: none; }
         #tb-dash-overlay .subject-row.no-data { opacity: 0.3; }
+        #tb-dash-overlay .subject-row.has-test {
+            background: rgba(234, 179, 8, 0.08);
+            border: 1px solid rgba(234, 179, 8, 0.25);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin: 4px -10px;
+        }
+        #tb-dash-overlay .test-badge {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #eab308; background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px;
+            padding: 2px 6px; white-space: nowrap;
+        }
         #tb-dash-overlay .subject-name { font-size: 13px; font-weight: 500; min-width: 80px; max-width: 110px; color: var(--text-secondary); flex-shrink: 0; }
         #tb-dash-overlay .subject-metrics { display: flex; gap: 12px; flex: 1; flex-wrap: wrap; align-items: center; }
         #tb-dash-overlay .metric { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
@@ -774,8 +787,16 @@
         for (var subjectName in facts) {
             if (!facts.hasOwnProperty(subjectName)) continue;
             var subjectData = facts[subjectName];
+
+            // Log full subject data keys to console for debugging test detection
+            var subjectKeys = Object.keys(subjectData);
+            if (subjectKeys.length > 2) {
+                console.log('[XP Tracker] ' + studentName + ' > ' + subjectName + ' keys:', subjectKeys, subjectData);
+            }
+
             var activity = subjectData.activityMetrics || {};
             var timeData = subjectData.timeSpentMetrics || {};
+            var testMetrics = subjectData.testMetrics || subjectData.alphaTestMetrics || subjectData.assessmentMetrics || null;
             var xp = activity.xpEarned || 0;
             var correct = activity.correctQuestions || 0;
             var totalQ = activity.totalQuestions || 0;
@@ -783,11 +804,36 @@
             var activeSecs = timeData.activeSeconds || 0;
             var minutes = activeSecs ? Math.ceil(activeSecs / 60) : 0;
             var accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+
+            // Detect Alpha Test — check multiple possible indicators
+            var hasTest = false;
+            if (testMetrics) {
+                hasTest = true;
+            }
+            // Check if activityMetrics has test-related fields
+            if (activity.alphaTestTaken || activity.testTaken || activity.hasTest) {
+                hasTest = true;
+            }
+            // Check for a dedicated test key at the subject level
+            if (subjectData.alphaTest || subjectData.test || subjectData.hasAlphaTest) {
+                hasTest = true;
+            }
+            // Log when we detect something unexpected for investigation
+            for (var key in subjectData) {
+                if (subjectData.hasOwnProperty(key) && key !== 'activityMetrics' && key !== 'timeSpentMetrics') {
+                    console.log('[XP Tracker] Extra key in ' + studentName + ' > ' + subjectName + ': "' + key + '"', subjectData[key]);
+                    // If any extra key contains "test" in its name, flag it
+                    if (key.toLowerCase().indexOf('test') !== -1) {
+                        hasTest = true;
+                    }
+                }
+            }
+
             totalXp += xp;
             totalMinutes += minutes;
             totalCorrect += correct;
             totalQuestions += totalQ;
-            subjects.push({ name: subjectName, xp: Math.round(xp), accuracy: accuracy, minutes: minutes, mastered: mastered, no_data: xp === 0 && minutes === 0 && accuracy === 0 });
+            subjects.push({ name: subjectName, xp: Math.round(xp), accuracy: accuracy, minutes: minutes, mastered: mastered, no_data: xp === 0 && minutes === 0 && accuracy === 0, has_test: hasTest });
         }
         return {
             name: studentName,
@@ -1162,8 +1208,10 @@
             var minColor = !noData && subj.minutes < 20 ? 'low-min' : '';
             var accBarColor = subj.accuracy >= 80 ? 'emerald' : (noData ? 'amber' : 'rose');
             var accWidth = Math.min(100, subj.accuracy);
-            subjectsHtml += '<div class="subject-row ' + (noData ? 'no-data' : '') + '">' +
-                '<span class="subject-name">' + subj.name + '</span>' +
+            var testClass = subj.has_test ? ' has-test' : '';
+            var testBadge = subj.has_test ? '<span class="test-badge">Test</span>' : '';
+            subjectsHtml += '<div class="subject-row' + testClass + (noData ? ' no-data' : '') + '">' +
+                '<span class="subject-name">' + subj.name + testBadge + '</span>' +
                 '<div class="subject-metrics">' +
                 '<div class="metric"><span class="metric-value" style="color: var(--accent-blue)">' + Math.round(subj.xp) + '</span><span class="metric-unit">XP</span></div>' +
                 '<div class="metric"><div class="metric-bar"><div class="metric-bar-fill ' + accBarColor + '" style="width:' + accWidth + '%"></div></div><span class="metric-value ' + accColor + '">' + subj.accuracy + '%</span></div>' +

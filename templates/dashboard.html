@@ -478,6 +478,20 @@
         }
         .subject-row:last-child { border-bottom: none; }
         .subject-row.no-data { opacity: 0.3; }
+        .subject-row.has-test {
+            background: rgba(234, 179, 8, 0.08);
+            border: 1px solid rgba(234, 179, 8, 0.25);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin: 4px -10px;
+        }
+        .test-badge {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.5px; color: #eab308; background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 4px;
+            padding: 2px 6px; white-space: nowrap; margin-left: 6px;
+            display: inline-block;
+        }
 
         .subject-name {
             font-size: 13px;
@@ -1710,9 +1724,12 @@
             const accBarColor = subj.accuracy >= 80 ? 'emerald' : (noData ? 'amber' : 'rose');
             const accWidth = Math.min(100, subj.accuracy);
 
+            const testClass = subj.has_test ? ' has-test' : '';
+            const testBadge = subj.has_test ? '<span class="test-badge">Test</span>' : '';
+
             subjectsHtml += `
-            <div class="subject-row ${noData ? 'no-data' : ''}">
-                <span class="subject-name">${subj.name}</span>
+            <div class="subject-row${testClass}${noData ? ' no-data' : ''}">
+                <span class="subject-name">${subj.name}${testBadge}</span>
                 <div class="subject-metrics">
                     <div class="metric">
                         <span class="metric-value" style="color: var(--accent-blue)">${Math.round(subj.xp)}</span>
