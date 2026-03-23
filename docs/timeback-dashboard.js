@@ -1226,9 +1226,34 @@
         setTimeout(function() { btn.textContent = 'Copy to Clipboard'; btn.classList.remove('copied'); }, 2000);
     }
 
+    var FIXED_SUBJECTS = ['Reading', 'Math', 'Language', 'Science', 'Writing', 'Vocabulary', 'FastMath'];
+
+    function normalizeSubjectName(name) {
+        var lower = name.toLowerCase();
+        if (lower === 'vocab' || lower === 'vocabulary') return 'Vocabulary';
+        for (var i = 0; i < FIXED_SUBJECTS.length; i++) {
+            if (FIXED_SUBJECTS[i].toLowerCase() === lower) return FIXED_SUBJECTS[i];
+        }
+        return name;
+    }
+
+    function getOrderedSubjects(studentData) {
+        // Start with fixed order, then add "Other" if any extra subjects exist
+        var seen = {};
+        FIXED_SUBJECTS.forEach(function(s) { seen[s] = true; });
+        var hasOther = false;
+        Object.keys(studentData).forEach(function(name) {
+            for (var subj in studentData[name]) {
+                if (!seen[subj]) hasOther = true;
+            }
+        });
+        var result = FIXED_SUBJECTS.slice();
+        if (hasOther) result.push('Other');
+        return result;
+    }
+
     function renderWeeklySubjectTotals(filteredDays) {
         // Aggregate XP per student per subject across all days
-        var allSubjects = {};
         var studentData = {};
 
         filteredDays.forEach(function(day) {
@@ -1236,18 +1261,19 @@
                 if (!studentData[s.name]) studentData[s.name] = {};
                 s.subjects.forEach(function(subj) {
                     if (subj.no_data) return;
-                    allSubjects[subj.name] = true;
-                    if (!studentData[s.name][subj.name]) {
-                        studentData[s.name][subj.name] = { xp: 0, accuracy: [], minutes: 0 };
+                    var normalized = normalizeSubjectName(subj.name);
+                    var key = FIXED_SUBJECTS.indexOf(normalized) !== -1 ? normalized : 'Other';
+                    if (!studentData[s.name][key]) {
+                        studentData[s.name][key] = { xp: 0, accuracy: [], minutes: 0 };
                     }
-                    studentData[s.name][subj.name].xp += subj.xp;
-                    studentData[s.name][subj.name].accuracy.push(subj.accuracy);
-                    studentData[s.name][subj.name].minutes += subj.minutes;
+                    studentData[s.name][key].xp += subj.xp;
+                    studentData[s.name][key].accuracy.push(subj.accuracy);
+                    studentData[s.name][key].minutes += subj.minutes;
                 });
             });
         });
 
-        var subjectNames = Object.keys(allSubjects).sort();
+        var subjectNames = getOrderedSubjects(studentData);
 
         // Calculate totals per student for sorting
         var studentTotals = {};
@@ -1302,7 +1328,8 @@
         // Header row
         html += '<thead><tr><th class="' + sortClass('name') + '" onclick="sortSubjectTable(\'name\')">Student</th>';
         subjectNames.forEach(function(subj) {
-            html += '<th class="' + sortClass(subj) + '" style="text-align:center;" onclick="sortSubjectTable(\'' + subj.replace(/'/g, "\\'") + '\')">' + subj + '</th>';
+            var displaySubj = subj === 'Vocabulary' ? 'Vocab' : subj;
+            html += '<th class="' + sortClass(subj) + '" style="text-align:center;" onclick="sortSubjectTable(\'' + subj.replace(/'/g, "\\'") + '\')">' + displaySubj + '</th>';
         });
         html += '<th class="' + sortClass('total') + '" style="text-align:center;" onclick="sortSubjectTable(\'total\')">Total XP</th>';
         html += '<th class="' + sortClass('acc') + '" style="text-align:center;" onclick="sortSubjectTable(\'acc\')">Avg Acc</th>';
@@ -1360,15 +1387,6 @@
 
     function renderWeeklyExport(filteredDays) {
         // Build tab-separated data: Student | Subject | Mon XP | Tue XP | ... | Total XP
-        var allSubjects = {};
-        filteredDays.forEach(function(day) {
-            day.students.forEach(function(s) {
-                s.subjects.forEach(function(subj) {
-                    if (!subj.no_data) allSubjects[subj.name] = true;
-                });
-            });
-        });
-        var subjectNames = Object.keys(allSubjects).sort();
         var studentNames = [];
         var seen = {};
         filteredDays.forEach(function(day) {
@@ -1378,7 +1396,7 @@
         });
         studentNames.sort();
 
-        // Build lookup: studentData[name][date][subject] = xp
+        // Build lookup: studentData[name][date][normalizedSubject] = xp
         var studentData = {};
         filteredDays.forEach(function(day) {
             day.students.forEach(function(s) {
@@ -1386,11 +1404,24 @@
                 if (!studentData[s.name][day.date]) studentData[s.name][day.date] = {};
                 s.subjects.forEach(function(subj) {
                     if (!subj.no_data) {
-                        studentData[s.name][day.date][subj.name] = subj.xp;
+                        var normalized = normalizeSubjectName(subj.name);
+                        var key = FIXED_SUBJECTS.indexOf(normalized) !== -1 ? normalized : 'Other';
+                        if (!studentData[s.name][day.date][key]) studentData[s.name][day.date][key] = 0;
+                        studentData[s.name][day.date][key] += subj.xp;
                     }
                 });
             });
         });
+
+        // Determine if we need "Other"
+        var hasOther = false;
+        Object.keys(studentData).forEach(function(name) {
+            Object.keys(studentData[name]).forEach(function(date) {
+                if (studentData[name][date]['Other']) hasOther = true;
+            });
+        });
+        var subjectNames = FIXED_SUBJECTS.slice();
+        if (hasOther) subjectNames.push('Other');
 
         var dayLabels = filteredDays.map(function(d) { return d.day_name + ' ' + d.date; });
 
@@ -1401,10 +1432,11 @@
         header.push('Weekly Total');
         rows.push(header.join('\t'));
 
-        // Data rows: one row per student per subject
+        // Data rows: one row per student per subject (always all subjects, 0 if no data)
         studentNames.forEach(function(name) {
             subjectNames.forEach(function(subj) {
-                var row = [name, subj];
+                var displayName = subj === 'Vocabulary' ? 'Vocab' : subj;
+                var row = [name, displayName];
                 var total = 0;
                 filteredDays.forEach(function(day) {
                     var xp = (studentData[name] && studentData[name][day.date] && studentData[name][day.date][subj]) || 0;
@@ -1412,8 +1444,7 @@
                     total += xp;
                 });
                 row.push(Math.round(total));
-                // Only include if student had any XP in this subject
-                if (total !== 0) rows.push(row.join('\t'));
+                rows.push(row.join('\t'));
             });
             // Add a student total row
             var totalRow = [name, 'TOTAL'];
