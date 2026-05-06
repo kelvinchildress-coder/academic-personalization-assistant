@@ -6,8 +6,7 @@ SY 2025–26.
 
 \#\# Status
 
-\> \*\*Last completed checkpoint:\*\* 0.5 — repo audited, \`groups.json\` injection cleaned,  
-\> README \+ recovery marker in place.
+> **Last completed checkpoint:** 1 — stale roster cleared (`students.json`/`student_ids.json` reset), `requirements.txt` extended for scheduling/Slack/PyGithub.
 
 If a chat session dies mid-build, a fresh chat can resume by reading this checkpoint  
 marker, the file tree, and the recent commit messages.
