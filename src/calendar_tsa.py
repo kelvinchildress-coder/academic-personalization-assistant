@@ -1,197 +1,165 @@
-"""Calendar A school-day predicate for Texas Sports Academy.
-
-Source: SY25-26 Master Calendar + Session Life Cycle Google Sheet,
-"SY25-26 Calendars" tab + "Session Dates" tab. TSA is on Calendar A.
-
-Holidays / breaks are stored as inclusive date ranges. Adding a new
-closure is a one-line edit to NON_SCHOOL_RANGES below.
-
-NOTE: This module deliberately does not call out to the network. The full
-SY26-27 calendar should be appended here once finalized; until then the
-module returns is_school_day() = False for any date past CALENDAR_END so
-callers know to refresh.
 """
+src/calendar_map.py
+MAP-aware Calendar A helpers for the Academic Personalization Assistant.
+
+This module sits ON TOP of src/calendar_tsa.py. It loads
+config/map_calendar.json and exposes:
+
+  - load_map_calendar(path=...)
+  - is_school_day(iso, calendar_data)
+  - school_days_between(start_iso, end_iso, calendar_data)
+  - next_map_window_after(iso, calendar_data)
+  - school_days_until_next_map(iso, calendar_data)
+  - last_completed_school_day(iso, calendar_data)
+
+All dates are ISO strings (YYYY-MM-DD). All ranges are INCLUSIVE on both ends
+unless explicitly noted (function docstrings).
+
+The legacy src/calendar_tsa.py remains the source of truth for the
+morning-report cron schedule and per-day target weighting (which subjects
+count today). This module is the source of truth for goal-date math.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
 from datetime import date, timedelta
-from typing import Iterable, List, Optional, Tuple
+from pathlib import Path
+from typing import Iterable, Optional, TypedDict
 
 
-# ---------------------------------------------------------------------------
-# SY25-26 Calendar A (TSA)
-# ---------------------------------------------------------------------------
-
-CALENDAR_START = date(2025, 8, 13)   # First day of Session 1
-CALENDAR_END = date(2026, 6, 30)     # End of school year (provisional)
-
-# Sessions: (first_day, last_day) inclusive.
-SESSIONS: List[Tuple[date, date]] = [
-    (date(2025, 8, 13), date(2025, 10, 3)),    # Session 1
-    (date(2025, 10, 13), date(2025, 12, 19)),  # Session 2
-    (date(2026, 1, 6),  date(2026, 3, 13)),    # Session 3 (provisional)
-    (date(2026, 3, 23), date(2026, 5, 29)),    # Session 4 (provisional)
-]
-
-# Anything not inside a session range is automatically NOT a school day, so
-# the gaps between sessions (Oct 4-12, Dec 20-Jan 5, Mar 14-22) are handled
-# implicitly. We only enumerate IN-SESSION closures here.
-NON_SCHOOL_RANGES: List[Tuple[date, date]] = [
-    # Labor Day
-    (date(2025, 9, 1), date(2025, 9, 1)),
-    # Thanksgiving week (Wed-Fri)
-    (date(2025, 11, 26), date(2025, 11, 28)),
-    # MLK Day
-    (date(2026, 1, 19), date(2026, 1, 19)),
-    # Presidents Day
-    (date(2026, 2, 16), date(2026, 2, 16)),
-    # Memorial Day
-    (date(2026, 5, 25), date(2026, 5, 25)),
-]
+class MapWindow(TypedDict):
+    season: str
+    school_year: str
+    start: str
+    end: str
 
 
-@dataclass(frozen=True)
-class CalendarInfo:
-    """Read-only view of the campus calendar."""
-    name: str
-    start: date
-    end: date
+class MapCalendar(TypedDict):
+    version: str
+    calendar: str
+    school_year: str
+    next_school_year: str
+    map_windows: list[MapWindow]
+    no_school_days: list[dict]
+    school_year_bounds: list[dict]
 
 
-CALENDAR_A = CalendarInfo("Calendar A (TSA)", CALENDAR_START, CALENDAR_END)
+DEFAULT_PATH = Path(__file__).resolve().parent.parent / "config" / "map_calendar.json"
 
 
-# ---------------------------------------------------------------------------
-# Predicates
-# ---------------------------------------------------------------------------
-
-def _in_any_range(d: date, ranges: Iterable[Tuple[date, date]]) -> bool:
-    return any(lo <= d <= hi for lo, hi in ranges)
+def load_map_calendar(path: Optional[Path] = None) -> MapCalendar:
+    p = Path(path) if path else DEFAULT_PATH
+    with p.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def is_weekday(d: date) -> bool:
-    """Mon-Fri == True; Sat/Sun == False. (Ignores holidays/sessions.)"""
-    return d.weekday() < 5
+def _expand_no_school(no_school_entries: Iterable[dict]) -> set[str]:
+    out: set[str] = set()
+    for entry in no_school_entries:
+        if "date" in entry:
+            out.add(entry["date"])
+        elif "start" in entry and "end" in entry:
+            d0 = date.fromisoformat(entry["start"])
+            d1 = date.fromisoformat(entry["end"])
+            cur = d0
+            while cur <= d1:
+                out.add(cur.isoformat())
+                cur += timedelta(days=1)
+    return out
 
 
-def in_session(d: date) -> bool:
-    """True iff d falls inside one of the SESSIONS ranges (inclusive).
+def _summer_breaks(school_year_bounds: Iterable[dict]) -> list[tuple[str, str]]:
+    """Return list of (exclusive_start, exclusive_end) summer-break intervals.
+    Days strictly between SY N last_day and SY N+1 first_day are not school days."""
+    bounds = sorted(
+        [b for b in school_year_bounds if b.get("first_day") and b.get("last_day")],
+        key=lambda b: b["last_day"],
+    )
+    summers: list[tuple[str, str]] = []
+    for i in range(len(bounds)):
+        last = bounds[i].get("last_day")
+        # Find any bound that follows
+        for j in range(i + 1, len(bounds)):
+            nxt = bounds[j].get("first_day")
+            if nxt and nxt > last:
+                summers.append((last, nxt))
+                break
+    # Also handle the case where only the closing year's last_day is known
+    # (preceding year's first_day is null but last_day is known) -> we cannot
+    # define a summer for unknown predecessors; that's fine.
+    return summers
 
-    If SESSIONS is empty (e.g. a future calendar year not yet populated),
-    this returns False; callers can fall back to is_weekday() if they want
-    pre-calendar behavior.
-    """
-    return _in_any_range(d, SESSIONS)
 
-
-def _has_session_data() -> bool:
-    return len(SESSIONS) > 0
-
-
-def is_school_day(d: date) -> bool:
-    """A school day is: weekday + (in a session OR no session data) + not a closure.
-
-    The 'no session data' fallback keeps tests passing when SESSIONS is empty
-    AND lets the user run before SY26-27 calendar is added.
-    """
-    if not is_weekday(d):
+def is_school_day(iso: str, cal: MapCalendar) -> bool:
+    d = date.fromisoformat(iso)
+    if d.weekday() >= 5:  # 5=Sat, 6=Sun
         return False
-    if _has_session_data() and not in_session(d):
+    no_school = _expand_no_school(cal["no_school_days"])
+    if iso in no_school:
         return False
-    if _in_any_range(d, NON_SCHOOL_RANGES):
-        return False
+    for sy_last, sy_next_first in _summer_breaks(cal["school_year_bounds"]):
+        if sy_last < iso < sy_next_first:
+            return False
     return True
 
 
-# ---------------------------------------------------------------------------
-# School-day arithmetic
-# ---------------------------------------------------------------------------
-
-def school_days_between(start: date, end: date) -> int:
-    """Count school days in [start, end] INCLUSIVE.
-
-    Returns 0 if end < start. Both endpoints are counted if they are school
-    days.
-    """
-    if end < start:
+def school_days_between(start_iso: str, end_iso: str, cal: MapCalendar) -> int:
+    """INCLUSIVE on both ends. Returns count of school days in [start, end]."""
+    if end_iso < start_iso:
         return 0
-    n = 0
-    d = start
-    while d <= end:
-        if is_school_day(d):
-            n += 1
-        d += timedelta(days=1)
-    return n
+    d0 = date.fromisoformat(start_iso)
+    d1 = date.fromisoformat(end_iso)
+    count = 0
+    cur = d0
+    while cur <= d1:
+        if is_school_day(cur.isoformat(), cal):
+            count += 1
+        cur += timedelta(days=1)
+    return count
 
 
-def school_days_remaining(today: date, target: date) -> int:
-    """School days STRICTLY AFTER `today` and on or before `target`.
+def next_map_window_after(iso: str, cal: MapCalendar) -> Optional[MapWindow]:
+    """Return the first MAP window whose start date is strictly after `iso`.
+    None if no future MAP windows are configured."""
+    candidates = [w for w in cal["map_windows"] if w["start"] > iso]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda w: w["start"])
 
-    Same semantics test_calendar_tsa.py and test_targets.py expect:
-      today=Mon 5/4, target=Fri 5/8 -> 4 (Tue Wed Thu Fri).
-      today == target -> 0.
-      target < today  -> 0.
-    """
-    if target <= today:
+
+def school_days_until_next_map(iso: str, cal: MapCalendar) -> Optional[int]:
+    """School days strictly between `iso` (exclusive) and the next MAP start
+    (exclusive). Returns None if no future MAP window exists."""
+    nxt = next_map_window_after(iso, cal)
+    if not nxt:
+        return None
+    d_after = (date.fromisoformat(iso) + timedelta(days=1)).isoformat()
+    d_before = (date.fromisoformat(nxt["start"]) - timedelta(days=1)).isoformat()
+    if d_before < d_after:
         return 0
-    return school_days_between(today + timedelta(days=1), target)
+    return school_days_between(d_after, d_before, cal)
 
 
-def previous_school_days(end: date, n: int) -> list[date]:
-    """Return the most recent `n` school days ending on or before `end`,
-    OLDEST FIRST.
-
-    If `end` itself is a school day, it counts as one of the n.
-    Used for the 5-school-day trend window in report_builder.
-    """
-    out: list[date] = []
-    d = end
-    while len(out) < n:
-        if is_school_day(d):
-            out.append(d)
+def last_completed_school_day(iso: str, cal: MapCalendar, max_lookback: int = 90) -> Optional[str]:
+    """Walk backward from `iso - 1` until we find a school day.
+    Returns None if no school day found within `max_lookback` days."""
+    d = date.fromisoformat(iso) - timedelta(days=1)
+    for _ in range(max_lookback):
+        s = d.isoformat()
+        if is_school_day(s, cal):
+            return s
         d -= timedelta(days=1)
-        # Safety belt: never walk past the calendar start by more than 365 days
-        if (end - d).days > 365 * 2:
-            break
-    return list(reversed(out))
-
-
-# ---------------------------------------------------------------------------
-# Session helpers
-# ---------------------------------------------------------------------------
-
-def current_session(d: date) -> Optional[int]:
-    """Return 1-based session index for d, or None if d is in a break."""
-    for i, (lo, hi) in enumerate(SESSIONS, start=1):
-        if lo <= d <= hi:
-            return i
     return None
 
 
-def session_bounds(d: date) -> Optional[Tuple[date, date]]:
-    """Return the (first, last) of the session containing d, or None."""
-    for lo, hi in SESSIONS:
-        if lo <= d <= hi:
-            return (lo, hi)
+def school_days_remaining_in_year(iso: str, cal: MapCalendar) -> Optional[int]:
+    """School days from `iso` (inclusive) through the last_day of the current
+    school year (inclusive). Returns None if `iso` is past all known years."""
+    bounds = sorted(cal["school_year_bounds"], key=lambda b: b.get("last_day") or "")
+    for b in bounds:
+        last = b.get("last_day")
+        first = b.get("first_day")
+        if last and last >= iso and (first is None or first <= iso):
+            return school_days_between(iso, last, cal)
     return None
-
-
-def school_days_remaining_in_session(d: date) -> int:
-    """School days from d (inclusive) to end of current session."""
-    bounds = session_bounds(d)
-    if bounds is None:
-        return 0
-    return school_days_between(d, bounds[1])
-
-
-def school_days_remaining_in_week(d: date) -> int:
-    """School days from d (inclusive) through the end of the week (Fri)."""
-    end_of_week = d + timedelta(days=(4 - d.weekday()))
-    if end_of_week < d:
-        return 0
-    return school_days_between(d, end_of_week)
-
-
-def school_days_remaining_in_year(d: date) -> int:
-    """School days from d (inclusive) to CALENDAR_END."""
-    return school_days_between(d, CALENDAR_END)
