@@ -7,9 +7,9 @@ SY 2025–26.
 \#\# Status
 
 > **Last completed checkpoint:** 1 — stale roster cleared (`students.json`/`student_ids.json` reset), `requirements.txt` extended for scheduling/Slack/PyGithub.
+coaches, supervisor, schedule), `src/models.py` (dataclasses), `src/calendar_tsa.py` (Calendar A school-day predicate), `src/targets.py` (XP target math), and `tests/__init__.py`. Tests for targets/calendar to be added in a follow-up commit.
 
-If a chat session dies mid-build, a fresh chat can resume by reading this checkpoint  
-marker, the file tree, and the recent commit messages.
+If a chat session dies mid-build, a fresh chat can resume by reading this checkpoint marker, the file tree, and the recent commit messages.
 
 \#\# Architecture (Path B — laptop scraper \+ GitHub Actions for always-on services)
 
