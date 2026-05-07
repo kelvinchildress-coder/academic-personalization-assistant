@@ -52,15 +52,10 @@ def test_school_days_between_inclusive(cal):
     # Mon May 4 through Fri May 8, 2026 -> 5 school days
     assert school_days_between("2026-05-04", "2026-05-08", cal) == 5
 
-
 def test_school_days_between_skips_holiday(cal):
-    # Wraps Memorial Day Mon 5/25/26
-    assert school_days_between("2026-05-22", "2026-05-29", cal) == 4
-    # Friday 5/22, [no Sat/Sun], skip Mon 5/25 (holiday), Tue/Wed/Thu/Fri 5/26-29 = 5
-    # Actually: 5/22 (Fri) yes, 5/23-24 weekend, 5/25 holiday, 5/26-29 (Tue-Fri) = 4. So total = 1 + 4 = 5.
-    # Re-check expected:
+    # 2026-05-22 (Fri), 5/23-24 weekend, 5/25 Memorial Day (holiday),
+    # 5/26 Tue, 5/27 Wed, 5/28 Thu, 5/29 Fri => 1 + 4 = 5 school days
     assert school_days_between("2026-05-22", "2026-05-29", cal) == 5
-
 
 def test_next_map_window_after_today(cal):
     nxt = next_map_window_after("2026-05-07", cal)
