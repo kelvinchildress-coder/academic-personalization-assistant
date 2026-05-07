@@ -1,0 +1,1672 @@
+{
+  "date": "2026-05-04",
+  "mode": "manual",
+  "students": [
+    {
+      "name": "Mason McDougald",
+      "total_xp": 54,
+      "overall_accuracy": 89,
+      "total_minutes": 104,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Language",
+          "xp": 0,
+          "accuracy": 13,
+          "minutes": 3,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 0,
+          "accuracy": 0,
+          "minutes": 21,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 0,
+          "accuracy": 27,
+          "minutes": 56,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 29,
+          "accuracy": 97,
+          "minutes": 8,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 25,
+          "accuracy": 100,
+          "minutes": 16,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Lawson Shilt",
+      "total_xp": 14,
+      "overall_accuracy": 81,
+      "total_minutes": 200,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 14,
+          "accuracy": 89,
+          "minutes": 179,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 0,
+          "accuracy": 75,
+          "minutes": 21,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Ryder Shilt",
+      "total_xp": 123,
+      "overall_accuracy": 95,
+      "total_minutes": 160,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 30,
+          "accuracy": 100,
+          "minutes": 23,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 93,
+          "accuracy": 94,
+          "minutes": 137,
+          "mastered": 11,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Stone Meyers",
+      "total_xp": 99,
+      "overall_accuracy": 84,
+      "total_minutes": 173,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 95,
+          "minutes": 0,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 61,
+          "accuracy": 84,
+          "minutes": 30,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 5,
+          "accuracy": 88,
+          "minutes": 3,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 23,
+          "accuracy": 74,
+          "minutes": 140,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Aksel Jensen",
+      "total_xp": 120,
+      "overall_accuracy": 72,
+      "total_minutes": 73,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 97,
+          "accuracy": 69,
+          "minutes": 37,
+          "mastered": 10,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 23,
+          "accuracy": 94,
+          "minutes": 36,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Kai Lever",
+      "total_xp": 0,
+      "overall_accuracy": 0,
+      "total_minutes": 0,
+      "absent": true,
+      "subjects": []
+    },
+    {
+      "name": "Otto Metzger",
+      "total_xp": 30,
+      "overall_accuracy": 63,
+      "total_minutes": 65,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Language",
+          "xp": 30,
+          "accuracy": 63,
+          "minutes": 65,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Zane Thornton",
+      "total_xp": 178,
+      "overall_accuracy": 83,
+      "total_minutes": 164,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 42,
+          "accuracy": 71,
+          "minutes": 56,
+          "mastered": 16,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 58,
+          "accuracy": 85,
+          "minutes": 26,
+          "mastered": 17,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 0,
+          "accuracy": 100,
+          "minutes": 25,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 26,
+          "accuracy": 80,
+          "minutes": 19,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 11,
+          "accuracy": 90,
+          "minutes": 13,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 41,
+          "accuracy": 66,
+          "minutes": 25,
+          "mastered": 8,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Andie Childress",
+      "total_xp": 218,
+      "overall_accuracy": 73,
+      "total_minutes": 467,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 60,
+          "accuracy": 62,
+          "minutes": 300,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 38,
+          "accuracy": 77,
+          "minutes": 35,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 120,
+          "accuracy": 83,
+          "minutes": 132,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Scarlett Zarabi",
+      "total_xp": 23,
+      "overall_accuracy": 90,
+      "total_minutes": 156,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Writing",
+          "xp": 8,
+          "accuracy": 88,
+          "minutes": 70,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 0,
+          "accuracy": 0,
+          "minutes": 39,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 5,
+          "accuracy": 47,
+          "minutes": 24,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 0,
+          "accuracy": 11,
+          "minutes": 16,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 95,
+          "minutes": 7,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Mira Kambic",
+      "total_xp": 158,
+      "overall_accuracy": 92,
+      "total_minutes": 82,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Science",
+          "xp": 13,
+          "accuracy": 73,
+          "minutes": 26,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 27,
+          "accuracy": 58,
+          "minutes": 21,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 27,
+          "accuracy": 88,
+          "minutes": 16,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 30,
+          "accuracy": 97,
+          "minutes": 0,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 32,
+          "accuracy": 59,
+          "minutes": 11,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 9,
+          "accuracy": 100,
+          "minutes": 8,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Unknown",
+          "xp": 20,
+          "accuracy": 0,
+          "minutes": 0,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Dsean Harden",
+      "total_xp": 91,
+      "overall_accuracy": 85,
+      "total_minutes": 146,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Language",
+          "xp": 32,
+          "accuracy": 81,
+          "minutes": 28,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 35,
+          "accuracy": 68,
+          "minutes": 74,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 14,
+          "accuracy": 87,
+          "minutes": 19,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 0,
+          "accuracy": 0,
+          "minutes": 1,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 94,
+          "minutes": 10,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 0,
+          "accuracy": 75,
+          "minutes": 14,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Jay Lever",
+      "total_xp": 29,
+      "overall_accuracy": 83,
+      "total_minutes": 49,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 29,
+          "accuracy": 88,
+          "minutes": 43,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 0,
+          "accuracy": 69,
+          "minutes": 6,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Alex Lekic Brajovic",
+      "total_xp": 139,
+      "overall_accuracy": 75,
+      "total_minutes": 84,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 15,
+          "accuracy": 61,
+          "minutes": 17,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 39,
+          "accuracy": 81,
+          "minutes": 35,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 42,
+          "accuracy": 74,
+          "minutes": 18,
+          "mastered": 24,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 43,
+          "accuracy": 85,
+          "minutes": 14,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Zenon Zaidi",
+      "total_xp": 150,
+      "overall_accuracy": 90,
+      "total_minutes": 169,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 30,
+          "accuracy": 80,
+          "minutes": 33,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 25,
+          "accuracy": 90,
+          "minutes": 25,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 100,
+          "minutes": 5,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 20,
+          "accuracy": 90,
+          "minutes": 12,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 26,
+          "accuracy": 100,
+          "minutes": 32,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 26,
+          "accuracy": 64,
+          "minutes": 49,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 13,
+          "accuracy": 94,
+          "minutes": 13,
+          "mastered": 43,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Zane Rogers",
+      "total_xp": 431,
+      "overall_accuracy": 86,
+      "total_minutes": 207,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 280,
+          "accuracy": 92,
+          "minutes": 79,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 28,
+          "accuracy": 90,
+          "minutes": 48,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 39,
+          "accuracy": 61,
+          "minutes": 41,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 12,
+          "accuracy": 87,
+          "minutes": 11,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 35,
+          "accuracy": 95,
+          "minutes": 9,
+          "mastered": 10,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 37,
+          "accuracy": 87,
+          "minutes": 19,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Marshall Jensen",
+      "total_xp": 267,
+      "overall_accuracy": 86,
+      "total_minutes": 85,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 30,
+          "accuracy": 86,
+          "minutes": 17,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 29,
+          "accuracy": 76,
+          "minutes": 8,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 158,
+          "accuracy": 92,
+          "minutes": 29,
+          "mastered": 10,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 11,
+          "accuracy": 91,
+          "minutes": 14,
+          "mastered": 13,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 39,
+          "accuracy": 49,
+          "minutes": 17,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Phoenix Knight",
+      "total_xp": 128,
+      "overall_accuracy": 67,
+      "total_minutes": 83,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Science",
+          "xp": 104,
+          "accuracy": 61,
+          "minutes": 39,
+          "mastered": 8,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 24,
+          "accuracy": 92,
+          "minutes": 7,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 0,
+          "accuracy": 76,
+          "minutes": 37,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Omar Ibarra",
+      "total_xp": 176,
+      "overall_accuracy": 88,
+      "total_minutes": 134,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 25,
+          "accuracy": 100,
+          "minutes": 43,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 95,
+          "minutes": 5,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 56,
+          "accuracy": 77,
+          "minutes": 51,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 13,
+          "accuracy": 80,
+          "minutes": 6,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 14,
+          "accuracy": 86,
+          "minutes": 14,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 58,
+          "accuracy": 97,
+          "minutes": 15,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Zion Clark",
+      "total_xp": 144,
+      "overall_accuracy": 89,
+      "total_minutes": 107,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 27,
+          "accuracy": 94,
+          "minutes": 20,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 24,
+          "accuracy": 87,
+          "minutes": 36,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 26,
+          "accuracy": 88,
+          "minutes": 13,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 34,
+          "accuracy": 89,
+          "minutes": 14,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 25,
+          "accuracy": 82,
+          "minutes": 14,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 9,
+          "accuracy": 90,
+          "minutes": 10,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Lauren Harden",
+      "total_xp": 62,
+      "overall_accuracy": 86,
+      "total_minutes": 164,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 10,
+          "accuracy": 80,
+          "minutes": 88,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 16,
+          "accuracy": 93,
+          "minutes": 16,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 11,
+          "accuracy": 87,
+          "minutes": 31,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 25,
+          "accuracy": 58,
+          "minutes": 29,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Allison Kim",
+      "total_xp": 191,
+      "overall_accuracy": 78,
+      "total_minutes": 136,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "FastMath",
+          "xp": 18,
+          "accuracy": 97,
+          "minutes": 18,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 3,
+          "accuracy": 96,
+          "minutes": 5,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 28,
+          "accuracy": 85,
+          "minutes": 16,
+          "mastered": 16,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 30,
+          "accuracy": 85,
+          "minutes": 50,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Writing",
+          "xp": 76,
+          "accuracy": 41,
+          "minutes": 19,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 26,
+          "accuracy": 80,
+          "minutes": 16,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 58,
+          "minutes": 12,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Corinne Mcgowan",
+      "total_xp": 253,
+      "overall_accuracy": 89,
+      "total_minutes": 283,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 90,
+          "accuracy": 88,
+          "minutes": 59,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 20,
+          "accuracy": 95,
+          "minutes": 22,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 27,
+          "accuracy": 90,
+          "minutes": 74,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 50,
+          "accuracy": 82,
+          "minutes": 11,
+          "mastered": 26,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Science",
+          "xp": 26,
+          "accuracy": 39,
+          "minutes": 67,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 40,
+          "accuracy": 90,
+          "minutes": 50,
+          "mastered": 15,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Lucius Walker",
+      "total_xp": 69,
+      "overall_accuracy": 95,
+      "total_minutes": 78,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 6,
+          "accuracy": 80,
+          "minutes": 1,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 19,
+          "accuracy": 95,
+          "minutes": 20,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 12,
+          "accuracy": 100,
+          "minutes": 26,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 10,
+          "accuracy": 100,
+          "minutes": 2,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 22,
+          "accuracy": 66,
+          "minutes": 29,
+          "mastered": 5,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Levi Reeves",
+      "total_xp": 221,
+      "overall_accuracy": 94,
+      "total_minutes": 129,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 14,
+          "accuracy": 78,
+          "minutes": 12,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 19,
+          "accuracy": 95,
+          "minutes": 20,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 146,
+          "accuracy": 88,
+          "minutes": 38,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 28,
+          "accuracy": 79,
+          "minutes": 56,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 14,
+          "accuracy": 98,
+          "minutes": 3,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "North Griswold",
+      "total_xp": 231,
+      "overall_accuracy": 69,
+      "total_minutes": 197,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Math",
+          "xp": 15,
+          "accuracy": 84,
+          "minutes": 52,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 197,
+          "accuracy": 89,
+          "minutes": 145,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 19,
+          "accuracy": 66,
+          "minutes": 0,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Cooper Gregston",
+      "total_xp": 216,
+      "overall_accuracy": 82,
+      "total_minutes": 136,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Science",
+          "xp": 71,
+          "accuracy": 57,
+          "minutes": 26,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 18,
+          "accuracy": 93,
+          "minutes": 18,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 29,
+          "accuracy": 81,
+          "minutes": 7,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 28,
+          "accuracy": 76,
+          "minutes": 25,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Vocabulary",
+          "xp": 35,
+          "accuracy": 91,
+          "minutes": 18,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 35,
+          "accuracy": 78,
+          "minutes": 42,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Rhoden Hamm",
+      "total_xp": 325,
+      "overall_accuracy": 92,
+      "total_minutes": 146,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "FastMath",
+          "xp": 19,
+          "accuracy": 95,
+          "minutes": 19,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 216,
+          "accuracy": 96,
+          "minutes": 85,
+          "mastered": 43,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 42,
+          "accuracy": 92,
+          "minutes": 30,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 48,
+          "accuracy": 100,
+          "minutes": 12,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Jax Marroquin",
+      "total_xp": 78,
+      "overall_accuracy": 83,
+      "total_minutes": 108,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "FastMath",
+          "xp": 6,
+          "accuracy": 50,
+          "minutes": 10,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 0,
+          "accuracy": 0,
+          "minutes": 46,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 45,
+          "accuracy": 80,
+          "minutes": 7,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 27,
+          "accuracy": 90,
+          "minutes": 45,
+          "mastered": 9,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Jack Delbridge",
+      "total_xp": 96,
+      "overall_accuracy": 96,
+      "total_minutes": 148,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Language",
+          "xp": 29,
+          "accuracy": 86,
+          "minutes": 71,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 28,
+          "accuracy": 98,
+          "minutes": 28,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 14,
+          "accuracy": 91,
+          "minutes": 16,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 25,
+          "accuracy": 100,
+          "minutes": 33,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Jennifer Thomason",
+      "total_xp": 78,
+      "overall_accuracy": 85,
+      "total_minutes": 147,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 5,
+          "accuracy": 50,
+          "minutes": 90,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 13,
+          "accuracy": 86,
+          "minutes": 21,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 12,
+          "accuracy": 85,
+          "minutes": 14,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 48,
+          "accuracy": 98,
+          "minutes": 22,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Jonathan Kambic",
+      "total_xp": 95,
+      "overall_accuracy": 89,
+      "total_minutes": 137,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 10,
+          "accuracy": 80,
+          "minutes": 5,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 35,
+          "accuracy": 68,
+          "minutes": 78,
+          "mastered": 7,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 33,
+          "accuracy": 89,
+          "minutes": 36,
+          "mastered": 1,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 17,
+          "accuracy": 92,
+          "minutes": 18,
+          "mastered": 2,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Fiona Krajicek",
+      "total_xp": 123,
+      "overall_accuracy": 85,
+      "total_minutes": 201,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "FastMath",
+          "xp": 12,
+          "accuracy": 75,
+          "minutes": 45,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 25,
+          "accuracy": 95,
+          "minutes": 28,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 42,
+          "accuracy": 86,
+          "minutes": 38,
+          "mastered": 4,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 44,
+          "accuracy": 55,
+          "minutes": 90,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Tallulah Chaney",
+      "total_xp": 125,
+      "overall_accuracy": 92,
+      "total_minutes": 131,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "FastMath",
+          "xp": 13,
+          "accuracy": 75,
+          "minutes": 25,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Reading",
+          "xp": 45,
+          "accuracy": 94,
+          "minutes": 40,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 24,
+          "accuracy": 78,
+          "minutes": 33,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 43,
+          "accuracy": 100,
+          "minutes": 33,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    },
+    {
+      "name": "Lucy Wilkinson",
+      "total_xp": 107,
+      "overall_accuracy": 80,
+      "total_minutes": 71,
+      "absent": false,
+      "subjects": [
+        {
+          "name": "Reading",
+          "xp": 18,
+          "accuracy": 72,
+          "minutes": 8,
+          "mastered": 6,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "FastMath",
+          "xp": 11,
+          "accuracy": 76,
+          "minutes": 29,
+          "mastered": 0,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Language",
+          "xp": 45,
+          "accuracy": 96,
+          "minutes": 12,
+          "mastered": 3,
+          "no_data": false,
+          "has_test": false
+        },
+        {
+          "name": "Math",
+          "xp": 33,
+          "accuracy": 96,
+          "minutes": 22,
+          "mastered": 10,
+          "no_data": false,
+          "has_test": false
+        }
+      ]
+    }
+  ],
+  "timestamp": "2026-05-07T20:13:53.496Z",
+  "source": "bookmarklet:export-day.js@v1"
+}
