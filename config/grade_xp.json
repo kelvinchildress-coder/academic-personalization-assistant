@@ -1,0 +1,20 @@
+{
+  "version": "1",
+  "last_updated": null,
+  "source": "manual",
+  "grades": {
+    "K":   {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "1st": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "2nd": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "3rd": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "4th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "5th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "6th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "7th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "8th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "9th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "10th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "11th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null},
+    "12th": {"Math": null, "Reading": null, "Language": null, "Writing": null, "Science": null, "Vocabulary": null, "FastMath": null}
+  }
+}
