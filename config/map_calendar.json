@@ -1,0 +1,46 @@
+{
+  "version": "1",
+  "calendar": "A",
+  "school_year": "SY25-26",
+  "next_school_year": "SY26-27",
+  "map_windows": [
+    {
+      "season": "Spring",
+      "school_year": "SY25-26",
+      "start": "2026-05-19",
+      "end": "2026-05-22"
+    },
+    {
+      "season": "Fall",
+      "school_year": "SY26-27",
+      "start": "2026-08-18",
+      "end": "2026-08-21"
+    },
+    {
+      "season": "Winter",
+      "school_year": "SY26-27",
+      "start": "2027-01-26",
+      "end": "2027-01-29"
+    },
+    {
+      "season": "Spring",
+      "school_year": "SY26-27",
+      "start": "2027-05-18",
+      "end": "2027-05-21"
+    }
+  ],
+  "no_school_days": [
+    {"date": "2026-05-25", "label": "Memorial Day", "school_year": "SY25-26"},
+    {"date": "2026-09-07", "label": "Labor Day", "school_year": "SY26-27"},
+    {"start": "2026-10-12", "end": "2026-10-16", "label": "Fall Break", "school_year": "SY26-27"},
+    {"start": "2026-11-23", "end": "2026-11-27", "label": "Thanksgiving Break", "school_year": "SY26-27"},
+    {"start": "2026-12-21", "end": "2027-01-01", "label": "Winter Break", "school_year": "SY26-27"},
+    {"date": "2027-01-18", "label": "MLK Day", "school_year": "SY26-27"},
+    {"start": "2027-02-22", "end": "2027-02-26", "label": "Mid-Winter Break", "school_year": "SY26-27"},
+    {"start": "2027-04-19", "end": "2027-04-23", "label": "Spring Break", "school_year": "SY26-27"}
+  ],
+  "school_year_bounds": [
+    {"school_year": "SY25-26", "first_day": null, "last_day": "2026-06-05", "comment": "first_day is historical; not needed for forward-looking calculations"},
+    {"school_year": "SY26-27", "first_day": "2026-08-12", "last_day": "2027-06-04"}
+  ]
+}
