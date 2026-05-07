@@ -1,0 +1,36 @@
+name: morning-report
+
+on:
+  workflow_dispatch:        # manual trigger from the Actions tab
+  schedule:
+    # 8:00 AM CT = 13:00 UTC during CDT, 14:00 UTC during CST.
+    # GitHub Actions cron is UTC only, so we run BOTH and the script
+    # itself bails out if today is not a school day or already ran.
+    - cron: "0 13 * * 1-5"
+    - cron: "0 14 * * 1-5"
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests python-dateutil
+
+      - name: Post morning report
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          python -m scripts.post_morning_report
