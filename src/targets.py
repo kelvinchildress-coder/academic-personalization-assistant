@@ -1,222 +1,147 @@
 """XP target math for the Academic Personalization Assistant.
 
-Daily XP base targets per subject (Texas Sports Academy):
-  Math, Reading, Language       = 25 XP/day
-  Vocabulary, FastMath          = 10 XP/day
-  Writing, Science              = 12.5 XP/day (flat, not alternating-week)
+Single source of truth for "how much XP should student X earn in subject Y
+today?". The answer is one of three things, in priority order:
 
-A student's effective daily target in a subject is:
-  - Coach's daily_xp_override if one is set, OR
-  - The pace required to grade-out by a target date (XP_to_master / school_days_remaining_to_target_date), OR
-  - The base rate above.
+  1. A coach-set per-subject XP override (Student.xp_overrides). Wins
+     unconditionally.
+  2. A test-out goal back-solve when the student has a TestOutGoal in this
+     subject. Per-day = max(0, (target_xp - starting_xp_in_subject)) /
+     school_days_remaining_strictly_after_today, capped at 4 * base_target.
+  3. The locked base rate for that subject (LOCKED_XP_RULES from models).
+     Unknown subjects fall back to 0.
 
-Pace status (`PaceStatus`) reports earned vs expected. For base-rate goals
-the `label` field mirrors the TimeBack Learner Report's string
-("On Track" / "Needs To Catch Up" / "Ahead"). For personalized goals we
-additionally populate delta_xp, days_remaining, catch_up_xp_per_day.
+This module deliberately stays simple. Pace status, "needs to catch up"
+labels, and grade-level math live in report_builder.py and models.py.
 """
-
 from __future__ import annotations
 
 from datetime import date
 from typing import Optional
 
-from .calendar_tsa import (
-    is_school_day,
-    school_days_between,
-    school_days_remaining_in_session,
-)
-from .models import (
-    AccuracyFlag,
-    CoachOverride,
-    DailyTarget,
-    PaceLabel,
-    PaceStatus,
-    Subject,
-)
-
-# ---------------------------------------------------------------------------
-# Base daily targets
-# ---------------------------------------------------------------------------
-
-BASE_DAILY_TARGETS: dict[Subject, float] = {
-    Subject.MATH: 25.0,
-    Subject.READING: 25.0,
-    Subject.LANGUAGE: 25.0,
-    Subject.WRITING: 12.5,
-    Subject.SCIENCE: 12.5,
-    Subject.VOCABULARY: 10.0,
-    Subject.FAST_MATH: 10.0,
-}
+from .calendar_tsa import school_days_remaining
+from .models import LOCKED_XP_RULES, Student, TestOutGoal
 
 
-def base_daily_target(subject: Subject) -> float:
-    """Return the campus base XP/day for the given subject."""
-    return BASE_DAILY_TARGETS[subject]
+# Cap for test-out back-solve: never demand more than 4x the locked daily
+# base for that subject, even if the goal/timeline says we should.
+_TEST_OUT_DAILY_CAP_MULTIPLIER: float = 4.0
 
 
 # ---------------------------------------------------------------------------
-# Effective daily target
+# Public API
 # ---------------------------------------------------------------------------
 
-def effective_daily_target(
-    student_id: str,
-    subject: Subject,
-    today: date,
-    earned_xp_in_session: float = 0.0,
-    override: Optional[CoachOverride] = None,
-    grade_out_total_xp_remaining: Optional[float] = None,
-) -> DailyTarget:
-    """Compute today's XP target for one student in one subject.
+def base_target(subject_name: str) -> float:
+    """Locked daily XP target for a subject by name.
 
-    Resolution order:
-      1. If a CoachOverride sets daily_xp_override, use it.
-      2. If a CoachOverride sets grade_out_by, divide remaining XP by
-         school days remaining until that date.
-      3. Otherwise return the campus base rate.
+    Returns 0 for any subject not in LOCKED_XP_RULES (e.g. "Underwater
+    Basket Weaving"), so unknown TimeBack apps don't crash the math.
     """
-    # If today is not a school day, return zero.
-    if not is_school_day(today):
-        return DailyTarget(
-            student_id=student_id,
-            subject=subject,
-            target_xp=0.0,
-            is_personalized=override is not None,
-            rationale="non-school-day",
-        )
-
-    if override is not None:
-        if override.daily_xp_override is not None:
-            return DailyTarget(
-                student_id=student_id,
-                subject=subject,
-                target_xp=float(override.daily_xp_override),
-                is_personalized=True,
-                rationale=f"coach override: {override.daily_xp_override} XP/day",
-            )
-
-        if override.grade_out_by is not None and grade_out_total_xp_remaining is not None:
-            days = school_days_between(today, override.grade_out_by)
-            if days <= 0:
-                return DailyTarget(
-                    student_id=student_id,
-                    subject=subject,
-                    target_xp=float(grade_out_total_xp_remaining),
-                    is_personalized=True,
-                    rationale="grade-out target date is today or past",
-                )
-            return DailyTarget(
-                student_id=student_id,
-                subject=subject,
-                target_xp=float(grade_out_total_xp_remaining) / days,
-                is_personalized=True,
-                rationale=f"grade-out by {override.grade_out_by.isoformat()}: {days} school days remaining",
-            )
-
-    return DailyTarget(
-        student_id=student_id,
-        subject=subject,
-        target_xp=base_daily_target(subject),
-        is_personalized=False,
-        rationale="campus base rate",
-    )
+    return float(LOCKED_XP_RULES.get(subject_name, 0))
 
 
-# ---------------------------------------------------------------------------
-# Pace status
-# ---------------------------------------------------------------------------
-
-def base_rate_pace(
-    earned_xp: float,
-    expected_xp: float,
-    days_remaining_in_session: int,
-    base_daily: float,
-) -> PaceStatus:
-    """Pace for a base-rate goal. Mirrors TimeBack Learner Report semantics."""
-    delta = earned_xp - expected_xp
-    if delta >= base_daily:
-        label = PaceLabel.AHEAD
-    elif delta >= 0:
-        label = PaceLabel.ON_TRACK
-    else:
-        label = PaceLabel.NEEDS_TO_CATCH_UP
-
-    if days_remaining_in_session <= 0:
-        catch_up = max(-delta, 0.0)
-    else:
-        catch_up = max(-delta / days_remaining_in_session, 0.0)
-
-    return PaceStatus(
-        label=label,
-        earned_xp=earned_xp,
-        expected_xp=expected_xp,
-        delta_xp=delta,
-        days_remaining=days_remaining_in_session,
-        catch_up_xp_per_day=catch_up,
-    )
-
-
-def personalized_pace(
-    earned_xp: float,
-    goal_xp_total: float,
+def student_subject_target(
+    student: Student,
+    subject: str,
     today: date,
-    target_date: date,
-) -> PaceStatus:
-    """Pace for a personalized (coach override or grade-out-by-date) goal."""
-    days = school_days_between(today, target_date)
-    days_total = school_days_between(today, target_date)  # alias for clarity
-    expected = goal_xp_total - max(
-        goal_xp_total * (days_total - max(days, 0)) / max(days_total, 1),
-        0.0,
-    )
-    # Simpler: expected = (school_days_so_far / total_school_days) * goal_xp_total
-    # but we only have remaining days here, so caller should supply expected
-    # via base_rate_pace if they need that exact form. We instead express
-    # progress as (earned vs goal) over (days_remaining).
-    delta = earned_xp - (goal_xp_total - (goal_xp_total * max(days, 1) / max(days_total, 1)))
+    starting_xp_in_subject: float = 0.0,
+) -> float:
+    """The student's effective daily XP target for one subject today.
 
-    remaining_xp = max(goal_xp_total - earned_xp, 0.0)
-    if days <= 0:
-        catch_up = remaining_xp
-        label = PaceLabel.AHEAD if remaining_xp <= 0 else PaceLabel.NEEDS_TO_CATCH_UP
-    else:
-        catch_up = remaining_xp / days
-        if remaining_xp <= 0:
-            label = PaceLabel.AHEAD
-        elif catch_up <= 0:
-            label = PaceLabel.AHEAD
-        else:
-            # Heuristic: if today's required pace exceeds 1.5x base rate equivalent
-            label = PaceLabel.NEEDS_TO_CATCH_UP if catch_up > 0 else PaceLabel.ON_TRACK
+    Priority: xp_overrides > test_out_goal back-solve > base_target.
 
-    return PaceStatus(
-        label=label,
-        earned_xp=earned_xp,
-        expected_xp=goal_xp_total - remaining_xp,
-        delta_xp=delta,
-        days_remaining=days,
-        catch_up_xp_per_day=catch_up,
-    )
+    `starting_xp_in_subject` is the student's already-earned XP toward the
+    test-out goal as of `today` (not today's XP). It is subtracted from the
+    goal target before dividing across the remaining school days. Pass 0 to
+    treat the goal as "this much new XP from today onward".
+    """
+    base = base_target(subject)
 
+    # 1. Coach override wins unconditionally.
+    override = student.xp_overrides.get(subject)
+    if override is not None:
+        return float(override)
 
-# ---------------------------------------------------------------------------
-# Accuracy flag helper
-# ---------------------------------------------------------------------------
-
-def should_flag(
-    student_id: str,
-    subject: Subject,
-    accuracy: float,
-    threshold: float,
-    window_label: str = "today",
-) -> Optional[AccuracyFlag]:
-    """Return an AccuracyFlag if accuracy < threshold else None."""
-    if accuracy < threshold:
-        return AccuracyFlag(
-            student_id=student_id,
-            subject=subject,
-            accuracy=accuracy,
-            threshold=threshold,
-            window_label=window_label,
+    # 2. Test-out goal back-solve (only if it's for THIS subject).
+    goal: Optional[TestOutGoal] = student.test_out_goal
+    if goal is not None and goal.subject == subject:
+        per_day = _back_solve_test_out(
+            goal=goal,
+            today=today,
+            starting_xp_in_subject=starting_xp_in_subject,
+            base=base,
         )
-    return None
+        if per_day is not None:
+            return per_day
+
+    # 3. Locked base rate (or 0 for unknown subjects).
+    return base
+
+
+def all_subject_targets(student: Student, today: date) -> dict[str, float]:
+    """Per-subject daily XP targets for every locked subject.
+
+    Returns a dict keyed by subject name with values from
+    student_subject_target(). For a student with no overrides and no
+    test-out goal, this equals LOCKED_XP_RULES.
+    """
+    out: dict[str, float] = {}
+    for subject in LOCKED_XP_RULES:
+        out[subject] = student_subject_target(student, subject, today)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _back_solve_test_out(
+    goal: TestOutGoal,
+    today: date,
+    starting_xp_in_subject: float,
+    base: float,
+) -> Optional[float]:
+    """Return per-day XP needed to hit `goal` by `goal.target_date`.
+
+    Returns None if the goal has no usable date or no remaining XP, so the
+    caller can fall back to the base rate.
+
+    - Uses school_days_remaining(today, target_date), which counts school
+      days STRICTLY AFTER today through and including target_date.
+    - Subtracts both the goal's own starting_xp and any caller-supplied
+      starting_xp_in_subject from the target before dividing.
+    - Caps the result at 4 * base (never demand more than 4x the locked
+      daily rate, even on tight timelines).
+    """
+    target_date = _parse_iso_date(goal.target_date)
+    if target_date is None:
+        return None
+
+    remaining_days = school_days_remaining(today, target_date)
+    if remaining_days <= 0:
+        # Past, same-day, or non-school target: caller falls back to base.
+        return None
+
+    xp_remaining = float(goal.target_xp) - float(goal.starting_xp) - float(starting_xp_in_subject)
+    if xp_remaining <= 0:
+        return 0.0
+
+    per_day = xp_remaining / remaining_days
+
+    if base > 0:
+        cap = _TEST_OUT_DAILY_CAP_MULTIPLIER * base
+        if per_day > cap:
+            per_day = cap
+
+    return per_day
+
+
+def _parse_iso_date(s: str) -> Optional[date]:
+    """Parse 'YYYY-MM-DD'. Returns None on bad input rather than raising,
+    so a malformed goal doesn't crash the morning report."""
+    try:
+        y, m, d = s.split("-")
+        return date(int(y), int(m), int(d))
+    except (ValueError, AttributeError):
+        return None
