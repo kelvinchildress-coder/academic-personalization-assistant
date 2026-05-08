@@ -277,7 +277,71 @@ class TieredMorningPayload:
     coach_blocks: Tuple[TieredCoachBlock, ...]
     head_coach_dm_text: Optional[str]        # populated only on staleness
     is_stale: bool
+  
+# Tier integer -> canonical name string used in history snapshots.
+    # Keep this stable; the dashboard and trend analysis read by name.
+    _TIER_NAMES = {
+        0: "coach_xp_override",
+        1: "coach_test_by",
+        2: "grade_mastered",
+        3: "personalized_base",
+        4: "locked_base",
+    }
 
+    def to_history_dict(self) -> dict:
+        """Convert this payload into the dict shape expected by
+        src.history.build_snapshot_from_report().
+
+        Output:
+        {
+          "students": [
+            {
+              "name": "Marcus Allen",
+              "coach": "Lisa C Willis",
+              "subjects": {
+                "Math":    {"target": 30, "actual": 27, "tier": "personalized_base", "status": "behind"},
+                "Reading": {"target": 25, "actual": 31, "tier": "locked_base",       "status": "ahead"},
+                ...
+              }
+            },
+            ...
+          ]
+        }
+
+        Notes:
+          - Status "no_data" is preserved as-is (history layer treats it
+            the same as "unknown").
+          - Tier integers are translated to canonical names via _TIER_NAMES.
+          - Unknown subjects flagged on a coach block are NOT included as
+            student-subject rows here; they're surfaced separately by the
+            morning report's unknown_subject_flags field.
+        """
+        students_out: list = []
+        seen: set = set()  # de-dupe across coach blocks (defensive)
+        for block in self.coach_blocks:
+            coach_name = getattr(block, "coach_name", "") or ""
+            for student_name, subject_rows in (getattr(block, "student_rows", ()) or ()):
+                key = (coach_name, student_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+                subjects: dict = {}
+                for row in subject_rows:
+                    tier_name = self._TIER_NAMES.get(
+                        int(getattr(row, "tier", -1)), "unknown"
+                    )
+                    subjects[row.subject] = {
+                        "target": float(getattr(row, "target_xp", 0) or 0),
+                        "actual": float(getattr(row, "xp_today", 0) or 0),
+                        "tier": tier_name,
+                        "status": str(getattr(row, "status", "unknown")),
+                    }
+                students_out.append({
+                    "name": student_name,
+                    "coach": coach_name,
+                    "subjects": subjects,
+                })
+        return {"students": students_out}
 
 def _classify_status(
     *, xp_today: float, target_xp: float, accuracy: Optional[float], no_data: bool
