@@ -45,6 +45,10 @@ from src.slack_threading import (        # noqa: E402
     reset_for_new_day,
 )
 
+from src.history import (                # noqa: E402
+    build_snapshot_from_report,
+    write_snapshot,
+)
 
 def _load_coach_slack_ids() -> Dict[str, str]:
     raw = os.environ.get("COACH_SLACK_IDS_JSON", "").strip()
@@ -137,11 +141,19 @@ def main() -> int:
         coach_slack_ids=coach_slack_ids,
     )
 
-    if payload.is_stale:
+   if payload.is_stale:
         # Locked rule: skip the post entirely.
         print("STALE: skipping morning post; DMing head coach.")
         if head_coach_slack_id and payload.head_coach_dm_text:
             _slack_dm(head_coach_slack_id, payload.head_coach_dm_text)
+        # Still record a stale-day snapshot so trend analysis knows
+        # the day was attempted but skipped.
+        try:
+            snap = build_snapshot_from_report(today.isoformat(), {"students": []}, stale=True)
+            write_snapshot(snap)
+            print(f"[history] wrote stale snapshot for {today.isoformat()}")
+        except Exception as e:
+            print(f"[history] WARN: could not write stale snapshot: {e}", file=sys.stderr)
         return 0
 
     # Post parent.
@@ -155,9 +167,29 @@ def main() -> int:
     for block in payload.coach_blocks:
         _slack_post(channel, block.text, thread_ts=parent_ts)
 
-    # Persist state.
+   # Persist state.
     state = reset_for_new_day(today, channel, parent_ts)
     save_state(default_state_path(), state)
+
+    # Phase 1: write daily history snapshot for trend analysis,
+    # session rollups, and dashboard. Best-effort; never block the
+    # main flow on a snapshot failure.
+    try:
+        report_dict = payload.to_history_dict() if hasattr(payload, "to_history_dict") else {
+            "students": [
+                {
+                    "name": getattr(b, "coach_name", "") or "",
+                    "coach": getattr(b, "coach_name", "") or "",
+                    "subjects": {},
+                }
+                for b in payload.coach_blocks
+            ]
+        }
+        snap = build_snapshot_from_report(today.isoformat(), report_dict, stale=False)
+        write_snapshot(snap)
+        print(f"[history] wrote snapshot for {today.isoformat()}")
+    except Exception as e:
+        print(f"[history] WARN: could not write snapshot: {e}", file=sys.stderr)
 
     print(f"OK: posted morning report for {today.isoformat()} (parent_ts={parent_ts})")
     return 0
