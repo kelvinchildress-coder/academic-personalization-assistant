@@ -1,6 +1,13 @@
+# DISABLED — paused during Phase 1+ upgrade build.
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
 name: agent-poll
 
 on:
+  # schedule:
+  #   - cron: "15 13-22 * * 1-5"
+  #   - cron: "0 14 * * *"
+  workflow_dispatch: {}
   schedule:
     # Phase 1 cadence: hourly during likely school hours, weekdays.
     # The runner is idempotent and self-throttling (MIN_REASK_DAYS in
