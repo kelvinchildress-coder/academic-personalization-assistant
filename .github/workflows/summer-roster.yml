@@ -1,6 +1,12 @@
+# DISABLED — paused during Phase 1+ upgrade build.
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
 name: summer-roster
 
 on:
+  # schedule:
+  #   - cron: "0 14 15 7 *"   # July 15, 9am Central
+  workflow_dispatch: {}
   schedule:
     # Daily at 14:00 UTC during late July / early August. The script
     # itself short-circuits outside its window, so a daily run is fine
