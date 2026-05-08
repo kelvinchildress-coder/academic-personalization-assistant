@@ -8,12 +8,7 @@ on:
   # schedule:
   #   - cron: "0 12 * * 1-5"   # 7am Central, weekdays
   workflow_dispatch: {}
-  schedule:
-    # 07:00 CT = 12:00 UTC during DST (Mar–Nov), 13:00 UTC otherwise.
-    # We run both and let the script's idempotent state guard handle it.
-    - cron: "0 12 * * 1-5"
-    - cron: "0 13 * * 1-5"
-  workflow_dispatch: {}
+   workflow_dispatch: {}
 
 permissions:
   contents: write
