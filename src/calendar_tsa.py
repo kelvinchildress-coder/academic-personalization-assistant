@@ -163,3 +163,24 @@ def school_days_remaining_in_year(iso: str, cal: MapCalendar) -> Optional[int]:
         if last and last >= iso and (first is None or first <= iso):
             return school_days_between(iso, last, cal)
     return None
+
+def previous_school_days(iso: str, n: int, cal: Optional[MapCalendar] = None, max_lookback: int = 365) -> list[str]:
+    """Return the most recent `n` school-day ISO dates strictly before `iso`,
+    ordered oldest -> newest. Walks backward from `iso - 1`; gives up after
+    `max_lookback` calendar days.
+
+    Designed for trend-window math (e.g. last 5 school days). If `cal` is
+    None, loads the default MAP calendar via load_map_calendar().
+    """
+    if cal is None:
+        cal = load_map_calendar()
+    out: list[str] = []
+    d = date.fromisoformat(iso) - timedelta(days=1)
+    for _ in range(max_lookback):
+        s = d.isoformat()
+        if is_school_day(s, cal):
+            out.append(s)
+            if len(out) >= n:
+                break
+        d -= timedelta(days=1)
+    return list(reversed(out))
