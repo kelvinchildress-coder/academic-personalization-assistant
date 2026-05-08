@@ -1,0 +1,65 @@
+name: summer-roster
+
+on:
+  schedule:
+    # Daily at 14:00 UTC during late July / early August. The script
+    # itself short-circuits outside its window, so a daily run is fine
+    # year-round.
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force run outside the summer window"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run summer roster refresh
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          HEAD_COACH_SLACK_ID: ${{ secrets.HEAD_COACH_SLACK_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
+          FORCE_SUMMER_REFRESH: ${{ github.event.inputs.force }}
+        run: python scripts/summer_roster_refresh.py
+      - name: Commit summer state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/summer_state.json data/proposed_roster.json || true
+          git diff --cached --quiet || git commit -m "chore: summer roster refresh state"
+          git push || true
+      - name: Open PR if proposal exists
+        if: hashFiles('data/proposed_roster.json') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          if [ ! -s data/proposed_roster.json ]; then
+            echo "No proposal file content; skipping PR."
+            exit 0
+          fi
+          BRANCH="summer-roster-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH" || git checkout "$BRANCH"
+          cp data/proposed_roster.json config/coaches.json
+          git add config/coaches.json
+          git diff --cached --quiet && { echo "No diff after applying proposal."; exit 0; }
+          git commit -m "chore: apply proposed summer roster"
+          git push -u origin "$BRANCH" || true
+          gh pr create \
+            --title "Summer roster update ($(date +%Y))" \
+            --body "Auto-generated from head coach Slack reply. Review carefully — this changes per-coach assignments for the new school year." \
+            --base main \
+            --head "$BRANCH" || true
