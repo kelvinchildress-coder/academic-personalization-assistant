@@ -1,6 +1,12 @@
+# DISABLED — paused during Phase 1+ upgrade build.
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
 name: eod-summary
 
 on:
+  # schedule:
+  #   - cron: "0 23 * * 1-5"   # 6pm Central, weekdays
+  workflow_dispatch: {}
   schedule:
     # ~17:30 CT, weekdays. Two crons to cover DST transitions.
     - cron: "30 22 * * 1-5"
