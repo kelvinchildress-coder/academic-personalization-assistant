@@ -1,6 +1,12 @@
-name: live-update
+# DISABLED — paused during Phase 1+ upgrade build.
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
+name: live-updates
 
 on:
+  # schedule:
+  #   - cron: "*/15 13-22 * * 1-5"   # every 15 min during school hours
+  workflow_dispatch: {}
   schedule:
     # Roughly 09:00, 11:00, 13:00, 15:00 CT, weekdays.
     - cron: "0 14,16,18,20 * * 1-5"
