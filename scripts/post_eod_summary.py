@@ -27,7 +27,11 @@ from src.report_builder import (  # noqa: E402
     to_daily_results,
 )
 from src.slack_poster import SlackPoster  # noqa: E402
-
+from src.history import (  # noqa: E402
+    build_snapshot_from_report,
+    read_snapshot,
+    write_snapshot,
+)
 
 CT = ZoneInfo("America/Chicago")
 
@@ -78,9 +82,39 @@ def main() -> int:
         print(text)
         return 0
 
-    poster = SlackPoster()
+  poster = SlackPoster()
     poster.post(morning_state["channel"], text, thread_ts=morning_state["parent_ts"])
     print("[eod] posted.")
+
+    # Phase 1: refresh the day's history snapshot with end-of-day actuals.
+    # If a morning snapshot exists for today, we update it in-place; otherwise
+    # we write a fresh EOD-only snapshot. Best-effort; never block on this.
+    try:
+        existing = read_snapshot(today.isoformat()) or {}
+        eod_payload = {
+            "students": [
+                {
+                    "name": r.student_name,
+                    "coach": r.coach_name,
+                    "subjects": {
+                        s.subject: {
+                            "target": s.target_xp,
+                            "actual": s.actual_xp,
+                            "tier": s.tier if hasattr(s, "tier") else "unknown",
+                            "status": s.status,
+                        }
+                        for s in r.subject_results
+                    } if hasattr(r, "subject_results") else {},
+                }
+                for r in results
+            ]
+        }
+        snap = build_snapshot_from_report(today.isoformat(), eod_payload, stale=existing.get("stale", False))
+        write_snapshot(snap)
+        print(f"[history] updated snapshot for {today.isoformat()} with EOD actuals")
+    except Exception as e:
+        print(f"[history] WARN: could not update EOD snapshot: {e}", file=sys.stderr)
+
     return 0
 
 
