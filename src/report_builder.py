@@ -39,7 +39,7 @@ from .targets import all_subject_targets
 # ---------- ingest helpers ----------
 
 def load_roster(path: Path) -> CoachRoster:
-    return CoachRoster.from_json(json.loads(path.read_text()))
+    return CoachRoster.from_dict(json.loads(path.read_text()))
 
 
 def load_students(path: Path) -> list[Student]:
