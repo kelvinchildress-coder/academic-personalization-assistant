@@ -1,0 +1,30 @@
+{
+  "_doc": "TSA session calendar. Sessions are TSA's equivalent of quarters: 5 per year, ~6-8 weeks each. Untracked sessions have no XP history and only exist for date-range awareness. End-of-session summaries fire 1 school day after `end`.",
+  "school_years": [
+    {
+      "sy": "25-26",
+      "sessions": [
+        {"n": 1, "start": null, "end": null, "tracked": false, "note": "untracked - predates history layer"},
+        {"n": 2, "start": null, "end": null, "tracked": false, "note": "untracked - predates history layer"},
+        {"n": 3, "start": null, "end": null, "tracked": false, "note": "untracked - predates history layer"},
+        {"n": 4, "start": null, "end": null, "tracked": false, "note": "untracked - predates history layer"},
+        {"n": 5, "start": null, "end": "2026-06-05", "tracked": true, "note": "Session 5 ends June 5, 2026 (last day of school year)"}
+      ]
+    },
+    {
+      "sy": "26-27",
+      "sessions": [
+        {"n": 1, "start": "2026-08-12", "end": "2026-10-02", "tracked": true},
+        {"n": 2, "start": "2026-10-12", "end": "2026-12-18", "tracked": true},
+        {"n": 3, "start": "2027-01-04", "end": "2027-02-19", "tracked": true},
+        {"n": 4, "start": "2027-03-01", "end": "2027-04-16", "tracked": true},
+        {"n": 5, "start": "2027-04-26", "end": "2027-06-04", "tracked": true}
+      ]
+    }
+  ],
+  "auth_allowed_email_domains": [
+    "sportsacademy.school",
+    "alpha.school",
+    "2hourlearning.com"
+  ]
+}
