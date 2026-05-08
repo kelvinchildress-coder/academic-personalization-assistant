@@ -1,6 +1,13 @@
+# DISABLED — paused during Phase 1+ upgrade build (history layer, exception
+# grammar, group statements, digest v2, EoQ summaries, dashboard).
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
 name: morning-report
 
 on:
+  # schedule:
+  #   - cron: "0 12 * * 1-5"   # 7am Central, weekdays
+  workflow_dispatch: {}
   schedule:
     # 07:00 CT = 12:00 UTC during DST (Mar–Nov), 13:00 UTC otherwise.
     # We run both and let the script's idempotent state guard handle it.
