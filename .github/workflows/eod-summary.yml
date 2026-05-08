@@ -1,11 +1,11 @@
 name: eod-summary
 
 on:
-  workflow_dispatch:
   schedule:
-    # 5:00 PM CT.  CDT=22:00 UTC, CST=23:00 UTC.
-    - cron: "0 22 * * 1-5"
-    - cron: "0 23 * * 1-5"
+    # ~17:30 CT, weekdays. Two crons to cover DST transitions.
+    - cron: "30 22 * * 1-5"
+    - cron: "30 23 * * 1-5"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -13,22 +13,14 @@ permissions:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests python-dateutil
-
-      - name: Post end-of-day summary
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Post EOD summary
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        run: |
-          python -m scripts.post_eod_summary
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: python scripts/post_eod.py
