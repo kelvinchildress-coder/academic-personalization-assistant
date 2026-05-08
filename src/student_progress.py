@@ -177,39 +177,9 @@ class ProgressLedger:
     is_stale: bool
     students: Tuple[StudentProgress, ...]
 
-
-# ---------------------------------------------------------------------------
-# TimeBack API client stub — the seam for Step I
-# ---------------------------------------------------------------------------
-
-
-class TimeBackAPIClient:
-    """
-    Placeholder API client. When TIMEBACK_API_TOKEN is provided we will
-    implement fetch_remaining_xp(student, subject, grade) here. Until
-    then every method raises NotImplementedError and callers fall back
-    to config/grade_xp.json + bookmarklet snapshots.
-    """
-
-    def __init__(self, token: Optional[str] = None):
-        self.token = token or os.environ.get("TIMEBACK_API_TOKEN")
-
-    @property
-    def is_configured(self) -> bool:
-        return bool(self.token)
-
-    def fetch_remaining_xp(
-        self,
-        *,
-        student_name: str,
-        subject: str,
-        grade: int,
-    ) -> float:
-        raise NotImplementedError(
-            "TimeBack API not yet wired. Set TIMEBACK_API_TOKEN and "
-            "implement this method as part of Step I."
-        )
-
+# TimeBackAPIClient now lives in src/timeback_api.py; re-export so legacy
+# imports keep working.
+from .timeback_api import TimeBackAPIClient  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Loaders
