@@ -15,13 +15,12 @@ Orchestrates one tick of the agent loop:
        * for each new coach reply:
            parse_reply() -> StructuredPatch
            config_writer.apply_patch()
-           on success: mark the corresponding gap as resolved (remove
-                       from asked_log so future gaps for that field are
-                       fresh).
+           on success: clear matching dedupe keys from asked_log so
+                       follow-up gaps for that field are detected fresh.
   5. Persist asked_log back to data/agent_state.json.
 
 A single tick is bounded by MAX_DMS_PER_TICK to avoid spamming Slack
-in case of bugs. If the count is reached, the next tick continues.
+in case of bugs. If the cap is reached, the next tick continues.
 """
 
 from __future__ import annotations
@@ -48,6 +47,7 @@ STATE_VERSION = 1
 class AgentState:
     asked_log: Dict[str, str] = field(default_factory=dict)
     last_outbound_ts_by_coach: Dict[str, str] = field(default_factory=dict)
+    last_inbound_ts_by_coach: Dict[str, str] = field(default_factory=dict)
     version: int = STATE_VERSION
 
     def to_json(self) -> Dict[str, Any]:
@@ -58,6 +58,7 @@ class AgentState:
         return cls(
             asked_log=dict(raw.get("asked_log") or {}),
             last_outbound_ts_by_coach=dict(raw.get("last_outbound_ts_by_coach") or {}),
+            last_inbound_ts_by_coach=dict(raw.get("last_inbound_ts_by_coach") or {}),
             version=int(raw.get("version") or STATE_VERSION),
         )
 
@@ -74,6 +75,32 @@ def _load_state(path: Path) -> AgentState:
 def _save_state(path: Path, state: AgentState) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state.to_json(), indent=2, sort_keys=True) + "\n")
+
+
+def _ts_to_datetime(ts: str) -> Optional[datetime]:
+    """Slack ts is 'seconds.microseconds'."""
+    try:
+        seconds = float(ts)
+    except (TypeError, ValueError):
+        return None
+    return datetime.fromtimestamp(seconds, tz=timezone.utc)
+
+
+def _open_gaps_for_student(
+    student_name: str,
+    students_blob: Dict[str, Any],
+    coaches_blob: Dict[str, Any],
+) -> List[GoalGap]:
+    """Recompute gaps just for one student so we can match a parsed
+    patch back to the gap it resolved (and thus clear asked_log)."""
+    return [
+        g for g in find_gaps(
+            students_config=students_blob,
+            coaches_config=coaches_blob,
+            asked_log={},          # ignore throttling for this lookup
+        )
+        if g.student_name == student_name
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +169,133 @@ def run_tick(
 
     # --- Inbound: parse coach replies since our last outbound -------------
     for coach_name, coach_user_id in coach_slack_ids.items():
-        last_ts = state.last_outbound_ts_by_coach.get(coach_name)
-        since_dt: Optional[datetime] = None
-        if last_ts:
-            try:
-                since_dt = dat
+        last_outbound = state.last_outbound_ts_by_coach.get(coach_name)
+        last_inbound = state.last_inbound_ts_by_coach.get(coach_name)
+        # We listen since whichever marker is older — that way, if the
+        # coach replies before we send a new question, we still catch it.
+        marker = last_inbound or last_outbound
+        since_dt = _ts_to_datetime(marker) if marker else None
+
+        msgs = slack.fetch_recent_dm_thread(coach_user_id, since=since_dt)
+        if not msgs:
+            continue
+
+        # Pair each coach reply with the most recent open gap for one of
+        # their students. This is best-effort; the LLM/regex parser
+        # often handles multi-student replies but we keep matching simple.
+        coach_students: List[str] = (coaches_blob.get("coaches") or {}).get(coach_name, [])
+        # Lisa Willis -> Lisa C Willis tolerance.
+        if not coach_students and coach_name == "Lisa Willis":
+            coach_students = (coaches_blob.get("coaches") or {}).get("Lisa C Willis", [])
+
+        open_gaps_by_student: Dict[str, List[GoalGap]] = {}
+        for student in coach_students:
+            og = _open_gaps_for_student(student, students_blob, coaches_blob)
+            if og:
+                open_gaps_by_student[student] = og
+
+        # Reload students_blob lazily after each successful patch so
+        # follow-up replies see updated state.
+        for m in msgs:
+            if m.is_bot:
+                continue
+            text = (m.text or "").strip()
+            if not text:
+                continue
+
+            # Pick a target gap. If only one student has an open gap,
+            # use it; otherwise try matching by student name in the text.
+            target_gap: Optional[GoalGap] = None
+            if len(open_gaps_by_student) == 1:
+                only_student = next(iter(open_gaps_by_student))
+                target_gap = open_gaps_by_student[only_student][0]
+            else:
+                lower = text.lower()
+                for student, gs in open_gaps_by_student.items():
+                    if student.lower().split()[0] in lower:
+                        target_gap = gs[0]
+                        break
+            if target_gap is None:
+                continue
+
+            result.replies_parsed += 1
+            parsed = parse_reply(
+                text,
+                gap=target_gap,
+                anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
+            )
+            if not parsed.patches:
+                result.parse_failures += 1
+                continue
+
+            for patch in parsed.patches:
+                patch.source_ts = m.ts
+                patch.source_coach = coach_name
+                ok, errs = apply_patch(patch, students_path=students_path)
+                if ok:
+                    result.patches_applied += 1
+                    # Clear any asked_log entries this patch resolves.
+                    students_blob = json.loads(students_path.read_text())
+                    refreshed = _open_gaps_for_student(
+                        patch.student_name, students_blob, coaches_blob
+                    )
+                    refreshed_keys = {g.dedupe_key for g in refreshed}
+                    state.asked_log = {
+                        k: v for k, v in state.asked_log.items()
+                        if not k.startswith(f"{patch.student_name}|")
+                        or k in refreshed_keys
+                    }
+                    # Refresh open_gaps_by_student so subsequent messages
+                    # in this loop see the new state.
+                    open_gaps_by_student[patch.student_name] = refreshed
+                    if not refreshed:
+                        open_gaps_by_student.pop(patch.student_name, None)
+                else:
+                    result.parse_failures += 1
+                    print(
+                        f"WARN: rejected patch for {patch.student_name}: "
+                        f"{', '.join(errs)}"
+                    )
+
+            state.last_inbound_ts_by_coach[coach_name] = m.ts
+
+    _save_state(state_path, state)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def _load_coach_slack_ids() -> Dict[str, str]:
+    raw = os.environ.get("COACH_SLACK_IDS_JSON", "").strip()
+    if not raw:
+        return {}
+    try:
+        return dict(json.loads(raw))
+    except json.JSONDecodeError:
+        print("WARN: COACH_SLACK_IDS_JSON is not valid JSON; ignoring.")
+        return {}
+
+
+def main() -> int:
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    coach_ids = _load_coach_slack_ids()
+    if not coach_ids:
+        print(
+            "NOOP: COACH_SLACK_IDS_JSON is empty; agent has no one to DM. "
+            "Add coach Slack IDs and re-run."
+        )
+        return 0
+    result = run_tick(repo_root=repo_root, coach_slack_ids=coach_ids)
+    print(
+        f"OK: phase={result.phase} dms={result.dms_sent} "
+        f"replies={result.replies_parsed} patches={result.patches_applied} "
+        f"parse_failures={result.parse_failures}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
