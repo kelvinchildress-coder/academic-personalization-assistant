@@ -4,26 +4,11 @@
 name: agent-poll
 
 on:
+  on:
   # schedule:
-  #   - cron: "15 13-22 * * 1-5"
-  #   - cron: "0 14 * * *"
+  #   - cron: "..."
   workflow_dispatch: {}
-  schedule:
-    # Phase 1 cadence: hourly during likely school hours, weekdays.
-    # The runner is idempotent and self-throttling (MIN_REASK_DAYS in
-    # src/agent/gap_finder.py); when there are no open gaps, it becomes
-    # a once-per-tick listener.
-    #
-    # Times are UTC. The window 13:00-22:00 UTC covers ~07:00-16:00 CT
-    # during DST and ~07:00-16:00 CT during standard time (close enough
-    # for hourly polling).
-    - cron: "15 13-22 * * 1-5"
-    # Phase 2 daily floor: also run once at 14:00 UTC every day. This
-    # ensures the agent listens for unsolicited replies on weekends and
-    # holidays without flooding.
-    - cron: "0 14 * * *"
-  workflow_dispatch: {}
-
+  
 permissions:
   contents: write
 
