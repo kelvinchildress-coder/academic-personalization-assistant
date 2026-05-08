@@ -7,11 +7,7 @@ on:
   # schedule:
   #   - cron: "0 14 15 7 *"   # July 15, 9am Central
   workflow_dispatch: {}
-  schedule:
-    # Daily at 14:00 UTC during late July / early August. The script
-    # itself short-circuits outside its window, so a daily run is fine
-    # year-round.
-    - cron: "0 14 * * *"
+  
   workflow_dispatch:
     inputs:
       force:
