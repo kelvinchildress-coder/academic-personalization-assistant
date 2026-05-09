@@ -167,7 +167,7 @@ def main() -> int:
     for block in payload.coach_blocks:
         _slack_post(channel, block.text, thread_ts=parent_ts)
 
-   # Persist state.
+    # Persist state.
     state = reset_for_new_day(today, channel, parent_ts)
     save_state(default_state_path(), state)
 
