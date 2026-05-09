@@ -137,7 +137,7 @@ def dispatch_message(
         anthropic_api_key=anthropic_api_key,
     )
 
- if isinstance(intent, (Pause, HalfTarget, GroupRule, SetTestBy)):
+    if isinstance(intent, (Pause, HalfTarget, GroupRule, SetTestBy)):
         return _stage_intent(
             intent=intent,
             coach_slack_id=coach_slack_id,
@@ -223,7 +223,7 @@ def _resolve_pending(
         speaker_coach_name=speaker_coach_name,
         anthropic_api_key=anthropic_api_key,
     )
-   if isinstance(new_intent, (Pause, HalfTarget, GroupRule, SetTestBy)):
+    if isinstance(new_intent, (Pause, HalfTarget, GroupRule, SetTestBy)):
         pop_proposal(pending_path, coach_slack_id, channel_id)
         result = _stage_intent(
             intent=new_intent,
