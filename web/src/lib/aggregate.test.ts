@@ -206,4 +206,6 @@ describe("aggregateRange — window options", () => {
 
 describe("aggregateRange — invalid input", () => {
   it("throws on a malformed today string", () => {
-    exp
+    expect(() => aggregateRange([], "not-a-date")).toThrow();
+  });
+});
