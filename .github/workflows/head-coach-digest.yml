@@ -1,0 +1,60 @@
+# Phase 4 Part 4 — Head-coach digest v2 weekly workflow.
+#
+# STATUS: PAUSED. The `schedule:` block is intentionally commented out.
+# Do NOT uncomment until Phase 4 is fully smoke-tested AND the user
+# explicitly lifts the Slack pause.
+#
+# Intended cadence (Q4-1): Monday 7:00 AM Central.
+#   - During CST (winter, UTC-6): 7am CT = 13:00 UTC -> "0 13 * * 1"
+#   - During CDT (summer, UTC-5): 7am CT = 12:00 UTC -> "0 12 * * 1"
+# We list BOTH commented entries below; pick one to enable based on the
+# current half of the year, OR (preferred) enable both — the script's
+# zoneinfo-based date resolution guarantees the digest is built for the
+# correct CT date regardless of which cron entry fires.
+
+name: head-coach-digest
+
+on:
+  # schedule:
+  #   - cron: "0 12 * * 1"   # Mon 07:00 CDT  (summer)
+  #   - cron: "0 13 * * 1"   # Mon 07:00 CST  (winter)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in DRY-RUN mode (print to log, do NOT post to Slack)"
+        type: boolean
+        required: false
+        default: true
+      override_today:
+        description: "Override 'today' (YYYY-MM-DD). Leave blank for actual today."
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run head-coach digest
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          HEAD_COACH_SLACK_ID: ${{ secrets.HEAD_COACH_SLACK_ID }}
+          # Manual-dispatch knobs (default to safe DRY-RUN).
+          DIGEST_V2_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          DIGEST_V2_TODAY: ${{ inputs.override_today }}
+        run: |
+          python scripts/post_head_coach_digest.py
