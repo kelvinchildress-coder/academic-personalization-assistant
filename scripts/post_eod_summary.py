@@ -82,7 +82,7 @@ def main() -> int:
         print(text)
         return 0
 
-  poster = SlackPoster()
+    poster = SlackPoster()
     poster.post(morning_state["channel"], text, thread_ts=morning_state["parent_ts"])
     print("[eod] posted.")
 
