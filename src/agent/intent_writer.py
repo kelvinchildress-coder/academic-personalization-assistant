@@ -185,7 +185,22 @@ def build_proposal(
                 "days": intent.days,
             },
             expanded_targets=[intent.student_name],
-            summary_text=_summarize_pause(intent),
+summary_text=_summarize_pause(intent),
+            raw_coach_text=intent.raw_text,
+        )
+    if isinstance(intent, HalfTarget):
+        return Proposal(
+            coach_slack_id=coach_slack_id,
+            channel_id=channel_id,
+            intent_kind="half_target",
+            payload={
+                "student_name": intent.student_name,
+                "subject": intent.subject,
+                "start_date": intent.start_date,
+                "days": intent.days,
+            },
+            expanded_targets=[intent.student_name],
+            summary_text=_summarize_half(intent),
             raw_coach_text=intent.raw_text,
         )
     if isinstance(intent, GroupRule):
