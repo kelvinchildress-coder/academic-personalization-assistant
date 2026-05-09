@@ -45,6 +45,7 @@ from .reply_parser import parse_reply
 from .config_writer import apply_patch
 from .dispatcher import dispatch_message
 from .slack_io import SlackIO
+from .group_resolver import _coach_to_student_list
 
 
 MAX_DMS_PER_TICK = 5     # cap outbound messages per run
@@ -140,10 +141,18 @@ def run_tick(
 
     students_blob = json.loads(students_path.read_text())
     coaches_blob = json.loads(coaches_path.read_text())
-    coach_slack_ids: Dict[str, str] = {
-        cn: cinfo.get("slack_id") or ""
-        for cn, cinfo in (coaches_blob.get("coaches") or {}).items()
-    }
+# Slack IDs come from the COACH_SLACK_IDS_JSON env var (same source
+    # post_morning.py uses). coaches.json in production is dict-of-list
+    # and does NOT carry slack_id per coach.
+    _slack_ids_raw = os.environ.get("COACH_SLACK_IDS_JSON", "").strip()
+    try:
+        coach_slack_ids: Dict[str, str] = (
+            dict(json.loads(_slack_ids_raw)) if _slack_ids_raw else {}
+        )
+    except json.JSONDecodeError:
+        coach_slack_ids = {}
+    # Roster lookup that tolerates bare-list / list-of-dicts / dict-of-dicts.
+    _roster_by_coach: Dict[str, List[str]] = _coach_to_student_list(coaches_blob)
 
     if pending_path is None:
         pending_path = state_path.parent / "pending_proposals.json"
@@ -195,9 +204,9 @@ def run_tick(
         if not msgs:
             continue
 
-        coach_students: List[str] = (coaches_blob.get("coaches") or {}).get(coach_name, [])
+    coach_students: List[str] = _roster_by_coach.get(coach_name, [])
         if not coach_students and coach_name == "Lisa Willis":
-            coach_students = (coaches_blob.get("coaches") or {}).get("Lisa C Willis", [])
+            coach_students = _roster_by_coach.get("Lisa C Willis", [])
 
         # Open-gap map for the gap-driven fallback path.
         open_gaps_by_student: Dict[str, List[GoalGap]] = {}
