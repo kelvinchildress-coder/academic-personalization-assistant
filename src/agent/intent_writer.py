@@ -188,7 +188,7 @@ def build_proposal(
             summary_text=_summarize_pause(intent),
             raw_coach_text=intent.raw_text,
         )
- if isinstance(intent, GroupRule):
+    if isinstance(intent, GroupRule):
         expanded = _expand_group_targets(
             intent.selector,
             students_blob=students_blob,
@@ -277,7 +277,7 @@ def apply_proposal(
     blob = _load_students(students_path)
     students = blob.get("students") or {}
 
-if proposal.intent_kind == "pause":
+    if proposal.intent_kind == "pause":
         targets = [proposal.payload["student_name"]]
         builder = _exception_for_pause
         payload = proposal.payload
