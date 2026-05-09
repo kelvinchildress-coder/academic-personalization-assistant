@@ -2,122 +2,100 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { listHistoryDates, readRange } from "@/lib/githubData";
-import { aggregateRange, DEFAULT_CURRENT_WINDOW_DAYS } from "@/lib/aggregate";
+import { aggregateRange } from "@/lib/aggregate";
 import { buildCoachIndex, slugifyName } from "@/lib/slug";
 import { isHeadCoach } from "@/lib/authz";
+import { parseWindowParam } from "@/lib/window";
+import WindowSelector from "@/components/WindowSelector";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const ROSTER_WINDOW_DAYS = 30;
-
 interface PageProps {
   params: { coachId: string };
+  searchParams: { window?: string | string[] };
 }
 
 /**
- * Phase 7 Part 5 — Per-coach roster page.
+ * Phase 7 Part 6 — Per-coach roster page (rev 2).
  *
- * URL: /coach/[coachId]   where coachId is a display-name slug.
+ * URL: /coach/[coachId][?window=30d|session|year]
  *
- * Authorization (Q5-3 = a):
- *   - Head coach can view any roster.
- *   - Non-head viewers can only view their own roster, where ownership
- *     is determined by slugify(session.user.name) === params.coachId.
+ * Authz (Q5-3 = a): head coach OR own roster (slug match).
  *
- * The snapshot schema does not carry coach emails, only display names,
- * so name-slug match is the bridge between session identity and roster
- * ownership. A future schema extension can replace this with an explicit
- * coach-email mapping if needed.
+ * Changes from Phase 7 Part 5 rev 1:
+ *   - Bug fix: result.perStudent (was result.students)
+ *   - Bug fix: row.name (was row.studentName)
+ *   - Bug fix: AggregateOptions key currentDays (was currentWindowDays)
+ *   - Window dropdown integration (Q6-3 = c)
  */
-export default async function CoachRosterPage({ params }: PageProps) {
+export default async function CoachRosterPage({
+  params,
+  searchParams,
+}: PageProps) {
   const session = await auth();
   const viewerEmail = session?.user?.email ?? null;
-  if (!viewerEmail) {
-    redirect("/login");
-  }
+  if (!viewerEmail) redirect("/login");
 
   const slug = params.coachId.toLowerCase();
+  const window = parseWindowParam(searchParams?.window);
 
   const dates = await listHistoryDates();
-  if (dates.length === 0) {
-    return (
-      <Shell title="No data yet">
-        <p className="text-sm text-gray-700">
-          The history store has no usable snapshots. Once the daily snapshot
-          job runs, the roster will appear here.
-        </p>
-      </Shell>
-    );
-  }
-
+  if (dates.length === 0) return <Shell title="No data yet" />;
   const today = dates[dates.length - 1];
-  const window = await readRange(today, ROSTER_WINDOW_DAYS);
-  const latest = window[window.length - 1];
-  if (!latest) {
-    return (
-      <Shell title="No data yet">
-        <p className="text-sm text-gray-700">
-          The latest snapshot is empty. Once the daily snapshot job runs again,
-          the roster will appear here.
-        </p>
-      </Shell>
-    );
-  }
+
+  const snaps = await readRange(today, window.days);
+  const latest = snaps[snaps.length - 1];
+  if (!latest) return <Shell title="No data yet" />;
 
   const idx = buildCoachIndex(latest.students);
   const coachName = idx.bySlug.get(slug);
-  if (!coachName) {
-    notFound();
-  }
+  if (!coachName) notFound();
 
-  const viewerName = session?.user?.name ?? "";
-  const viewerSlug = slugifyName(viewerName);
+  const viewerSlug = slugifyName(session?.user?.name ?? "");
   const isOwnRoster = !!viewerSlug && viewerSlug === slug;
   const allowed = isHeadCoach(viewerEmail) || isOwnRoster;
-
   if (!allowed) {
     return (
       <Shell title="Not authorized">
-        <p className="text-sm text-gray-700">
-          You don&apos;t have access to {coachName}&apos;s roster. Coaches can
-          only view their own students.
-        </p>
+        You don&apos;t have access to {coachName}&apos;s roster. Coaches can
+        only view their own students.
       </Shell>
     );
   }
 
-  const coachWindow = window.map((snap) => ({
+  const coachSnaps = snaps.map((snap) => ({
     ...snap,
     students: snap.students.filter((s) => s.coach === coachName),
   }));
-
-  const result = aggregateRange(coachWindow, today, {
-    currentWindowDays: DEFAULT_CURRENT_WINDOW_DAYS,
+  const result = aggregateRange(coachSnaps, today, {
+    currentDays: window.days,
   });
 
-  const studentRows = result.students
+  const studentRows = Object.values(result.perStudent)
     .slice()
     .sort((a, b) => b.severity - a.severity);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Roster — {coachName}
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Window: last {ROSTER_WINDOW_DAYS} days through {today}.{" "}
-          {studentRows.length} students.
-        </p>
-        {isHeadCoach(viewerEmail) && (
-          <p className="mt-2 text-xs text-gray-500">
-            Viewing as head coach.{" "}
-            <Link href="/head" className="underline hover:text-gray-900">
-              All-coach overview
-            </Link>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Roster — {coachName}
+          </h1>
+          <p className="mt-1 text-sm text-gray-600">
+            {window.label} through {today}. {studentRows.length} students.
           </p>
-        )}
+          {isHeadCoach(viewerEmail) && (
+            <p className="mt-2 text-xs text-gray-500">
+              Viewing as head coach.{" "}
+              <Link href="/head" className="underline hover:text-gray-900">
+                All-coach overview
+              </Link>
+            </p>
+          )}
+        </div>
+        <WindowSelector />
       </header>
 
       {studentRows.length === 0 ? (
@@ -137,11 +115,11 @@ export default async function CoachRosterPage({ params }: PageProps) {
           </thead>
           <tbody>
             {studentRows.map((row) => {
-              const studentSlug = slugifyName(row.studentName);
-              const topConcern = row.concerns[0]?.category ?? "—";
+              const studentSlug = slugifyName(row.name);
+              const topConcern = row.concerns[0] ?? "—";
               return (
                 <tr
-                  key={row.studentName}
+                  key={row.name}
                   className="border-b border-gray-200 hover:bg-gray-50"
                 >
                   <td className="px-3 py-2">
@@ -149,7 +127,7 @@ export default async function CoachRosterPage({ params }: PageProps) {
                       href={`/coach/${slug}/student/${studentSlug}`}
                       className="text-blue-700 hover:underline"
                     >
-                      {row.studentName}
+                      {row.name}
                     </Link>
                   </td>
                   <td className="px-3 py-2">
@@ -167,7 +145,7 @@ export default async function CoachRosterPage({ params }: PageProps) {
                     {row.severity.toFixed(2)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                    {row.daysBehind ?? "—"}
+                    {row.daysBehind}
                   </td>
                 </tr>
               );
@@ -179,11 +157,11 @@ export default async function CoachRosterPage({ params }: PageProps) {
   );
 }
 
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+function Shell({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="mb-2 text-xl font-semibold text-gray-900">{title}</h1>
-      {children}
+      {children && <p className="text-sm text-gray-700">{children}</p>}
     </main>
   );
 }
