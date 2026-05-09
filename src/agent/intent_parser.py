@@ -454,7 +454,7 @@ def _intent_from_llm_dict(
             days=days,
             raw_text=raw_text,
         )
- if kind == "group_rule":
+    if kind == "group_rule":
         scope = obj.get("group_scope") or "speaker"
         if scope not in ("speaker", "all"):
             scope = "speaker"
