@@ -44,6 +44,7 @@ from .intents import (
     HalfTarget,
     GroupRule,
     GroupSelector,
+    SetTestBy,
     ConfirmYes,
     ConfirmNo,
     Refine,
@@ -336,6 +337,11 @@ _LLM_SYSTEM = (
     "  pause       - student or group is unavailable for some days\n"
     "  half_target - reduce target XP/grade by half for a window\n"
     "  group_rule  - pause or half_target applied to a group\n"
+    "  set_test_by - move/schedule a student's test-out date (and/or set "
+    "                  a target grade) for one subject. Examples: 'push "
+    "                  Allison's MAP to next Wednesday', 'Marcus tests "
+    "                  out of Math at grade 4 by May 30', 'move Sam's "
+    "                  reading test to two weeks from today'.\n"
     "  confirm_yes - coach is approving a pending proposal\n"
     "  confirm_no  - coach is rejecting a pending proposal\n"
     "  refine      - coach wants to adjust a pending proposal\n"
@@ -351,10 +357,18 @@ _LLM_SYSTEM = (
     '  "group_scope": "speaker|all"|null,\n'
     '  "level_band": "LL|L1|L2|L3"|null,\n'
     '  "action": "pause|half_target"|null,\n'
+    '  "target_date": "YYYY-MM-DD"|null,\n'
+    '  "target_grade": int|null,\n'
     '  "hint": str|null\n'
     "}\n"
     "Use null for fields the coach did not specify. start_date defaults to "
-    "today if a relative phrase like 'today' or 'this week' is used."
+    "today if a relative phrase like 'today' or 'this week' is used. "
+    "For set_test_by: target_date is the new test-out deadline (resolve "
+    "relative phrases like 'next Wednesday' or 'two weeks out' against "
+    "the today value). target_grade is optional and only filled if the "
+    "coach explicitly mentions a grade level (e.g. 'at grade 4'). "
+    "subject is required for set_test_by (default to 'Math' if the "
+    "coach said 'MAP' without naming a subject)."
 )
 
 
@@ -440,7 +454,7 @@ def _intent_from_llm_dict(
             days=days,
             raw_text=raw_text,
         )
-    if kind == "group_rule":
+ if kind == "group_rule":
         scope = obj.get("group_scope") or "speaker"
         if scope not in ("speaker", "all"):
             scope = "speaker"
@@ -460,6 +474,37 @@ def _intent_from_llm_dict(
             subject=subject,
             start_date=start_date,
             days=days,
+            raw_text=raw_text,
+        )
+    if kind == "set_test_by":
+        # Subject defaults to Math when coach says "MAP" without naming
+        # a subject (most common shorthand at TSA).
+        st_subject = subject or "Math"
+        # Parse target_date (may be null, may be ISO).
+        td_raw = obj.get("target_date")
+        td: Optional[date] = None
+        if td_raw:
+            try:
+                td = date.fromisoformat(str(td_raw))
+            except ValueError:
+                td = None
+        # Parse target_grade (may be null, may be int or numeric string).
+        tg_raw = obj.get("target_grade")
+        tg: Optional[int] = None
+        if tg_raw is not None:
+            try:
+                tg = int(tg_raw)
+            except (TypeError, ValueError):
+                tg = None
+        # Drop entirely-empty SetTestBy (no date, no grade) -> Unknown,
+        # so the dispatcher can ask the coach to clarify.
+        if td is None and tg is None:
+            return Unknown(raw_text=raw_text)
+        return SetTestBy(
+            student=obj.get("student_name") or "",
+            subject=st_subject,
+            target_grade=tg,
+            target_date=td,
             raw_text=raw_text,
         )
     return Unknown(raw_text=raw_text)
