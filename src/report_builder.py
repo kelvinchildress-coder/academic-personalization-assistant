@@ -34,6 +34,7 @@ from .models import (
     LOCKED_XP_RULES,
 )
 from .targets import all_subject_targets
+from .exceptions_modifier import apply_exceptions
 
 
 # ---------- ingest helpers ----------
@@ -408,6 +409,7 @@ def _build_rows_for_student(
             cumulative_xp_in_current_grade=None,    # populated in Step I
             map_calendar_path=map_calendar_path,
         )
+        res = apply_exceptions(res, student_profile=student_profile, today=today)
         status = _classify_status(
             xp_today=sp.xp_today,
             target_xp=res.xp_per_day,
