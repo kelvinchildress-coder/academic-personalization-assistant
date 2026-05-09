@@ -46,6 +46,7 @@ from .intents import (
     grades_for_band,
 )
 from .pending_state import Proposal
+from .group_resolver import _coach_to_student_list
 
 
 def _add_school_days(start_iso: str, days: int) -> str:
@@ -84,19 +85,14 @@ def _expand_group_targets(
     coaches_blob: Dict[str, Any],
 ) -> List[str]:
     """Return the list of student names a GroupSelector resolves to."""
-    students = students_blob.get("students") or {}
-    coaches = coaches_blob.get("coaches") or {}
+  students = students_blob.get("students") or {}
 
     if selector.scope == "speaker":
         speaker = selector.speaker_coach
-        roster = []
-        for cname, cinfo in coaches.items():
-            if cname == speaker:
-                roster = cinfo.get("students") or []
-                break
+        # Use the schema-tolerant resolver so we work with bare-list,
+        # list-of-dicts, or dict-of-dicts shapes of coaches.json.
+        roster = _coach_to_student_list(coaches_blob).get(speaker, [])
         candidates = [n for n in roster if n in students]
-    else:
-        candidates = list(students.keys())
 
     if selector.level_band:
         band_grades = set(grades_for_band(selector.level_band) or [])
