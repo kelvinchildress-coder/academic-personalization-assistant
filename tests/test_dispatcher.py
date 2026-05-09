@@ -17,9 +17,8 @@ from src.agent.pending_state import get_proposal, list_proposals
 class FakeSlack:
     sent: List[Dict[str, Any]] = field(default_factory=list)
 
-    def send_dm(self, user_id: str, *, channel_id: Optional[str] = None,
-                text: str = "") -> Optional[str]:
-        self.sent.append({"user": user_id, "channel": channel_id, "text": text})
+    def send_dm(self, user_id: str, text: str = "") -> Optional[str]:
+        self.sent.append({"user": user_id, "text": text})
         return "1234567890.000001"
 
 
