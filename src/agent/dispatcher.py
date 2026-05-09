@@ -27,15 +27,16 @@ Decision tree (in order):
 
 This module is intentionally agnostic about *how* the message arrived
 or how the reply gets sent — it takes a SlackIO-shaped object so the
-caller can swap in a fake for tests.
+caller can swap in a fake for tests. The Slack object only needs a
+`send_dm(user_id, text=...)` method.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from .intent_parser import parse_intent
 from .intent_writer import apply_proposal, build_proposal
@@ -71,16 +72,20 @@ class DispatchResult:
                           # | "error"
     summary: str = ""
     affected_students: int = 0
-    errors: List[str] = None  # type: ignore[assignment]
-
-    def __post_init__(self):
-        if self.errors is None:
-            self.errors = []
+    errors: List[str] = field(default_factory=list)
 
 
 class SlackSender(Protocol):
-    def send_dm(self, user_id: str, *, channel_id: Optional[str] = None,
-                text: str = "") -> Optional[str]: ...
+    def send_dm(self, user_id: str, text: str) -> Optional[str]: ...
+
+
+def _send(slack: SlackSender, user_id: str, text: str) -> None:
+    """Best-effort DM. Tries (user_id, text) first; falls back to kwarg."""
+    try:
+        slack.send_dm(user_id, text)
+    except TypeError:
+        # Some implementations may accept text as a kwarg only.
+        slack.send_dm(user_id, text=text)
 
 
 # ---------------------------------------------------------------------------
@@ -102,10 +107,7 @@ def dispatch_message(
     anthropic_api_key: Optional[str] = None,
     today: Optional[date] = None,
 ) -> DispatchResult:
-    """Route ONE inbound coach DM through the Phase-2 pipeline.
-
-    See module docstring for the decision tree.
-    """
+    """Route ONE inbound coach DM through the Phase-2 pipeline."""
     text = (text or "").strip()
     if not text:
         return DispatchResult(kind="noop", summary="empty message")
@@ -146,15 +148,11 @@ def dispatch_message(
         )
 
     if isinstance(intent, (ConfirmYes, ConfirmNo)):
-        # Bare yes/no with no pending proposal -> let the gap-driven
-        # runner handle it (e.g. "ratify default" affirmation).
         return DispatchResult(
             kind="noop",
             summary="bare yes/no with no pending proposal",
         )
 
-    # Unknown / Refine without context -> let the runner's existing
-    # parse_reply pipeline try.
     return DispatchResult(kind="unknown", summary="no intent matched")
 
 
@@ -178,7 +176,6 @@ def _resolve_pending(
     anthropic_api_key: Optional[str],
 ) -> DispatchResult:
     if is_yes(text):
-        # Apply.
         popped = pop_proposal(pending_path, coach_slack_id, channel_id)
         if popped is None:
             return DispatchResult(kind="error", errors=["proposal vanished"])
@@ -188,20 +185,18 @@ def _resolve_pending(
             source_coach_name=speaker_coach_name,
         )
         if not ok:
-            slack.send_dm(
-                coach_slack_id,
-                channel_id=channel_id,
-                text=(
+            _send(
+                slack, coach_slack_id,
+                (
                     f":warning: I couldn't apply that change — "
                     f"errors: {'; '.join(errs) or 'unknown'}. "
                     f"No changes were saved."
                 ),
             )
             return DispatchResult(kind="error", errors=errs)
-        slack.send_dm(
-            coach_slack_id,
-            channel_id=channel_id,
-            text=(
+        _send(
+            slack, coach_slack_id,
+            (
                 f":white_check_mark: Done — applied to {n} student(s). "
                 f"{popped.summary_text}"
             ),
@@ -215,22 +210,19 @@ def _resolve_pending(
 
     if is_no(text):
         pop_proposal(pending_path, coach_slack_id, channel_id)
-        slack.send_dm(
-            coach_slack_id,
-            channel_id=channel_id,
-            text=":no_entry_sign: Got it — dropped that pending change.",
+        _send(
+            slack, coach_slack_id,
+            ":no_entry_sign: Got it — dropped that pending change.",
         )
         return DispatchResult(kind="dropped", summary=pending.summary_text)
 
-    # Try to interpret as a Refine: re-parse and replace the pending
-    # proposal IF the new parse yields a real intent (not Unknown).
+    # Refine: try a re-parse.
     new_intent = parse_intent(
         text,
         speaker_coach_name=speaker_coach_name,
         anthropic_api_key=anthropic_api_key,
     )
     if isinstance(new_intent, (Pause, HalfTarget, GroupRule)):
-        # Pop the old, stage the new.
         pop_proposal(pending_path, coach_slack_id, channel_id)
         result = _stage_intent(
             intent=new_intent,
@@ -248,11 +240,9 @@ def _resolve_pending(
             affected_students=result.affected_students,
         )
 
-    # Not yes, not no, not a recognizable refinement -> ask for clarity.
-    slack.send_dm(
-        coach_slack_id,
-        channel_id=channel_id,
-        text=(
+    _send(
+        slack, coach_slack_id,
+        (
             f":question: I'm holding a pending change: "
             f"_{pending.summary_text}_. "
             f"Reply *yes* to apply, *no* to drop, or send a new instruction."
@@ -298,11 +288,7 @@ def _stage_intent(
             f"_Affects {len(proposal.expanded_targets)} student(s)._"
         )
     msg_lines.append("Reply *yes* to apply or *no* to drop.")
-    slack.send_dm(
-        coach_slack_id,
-        channel_id=channel_id,
-        text="\n".join(msg_lines),
-    )
+    _send(slack, coach_slack_id, "\n".join(msg_lines))
     return DispatchResult(
         kind="staged",
         summary=proposal.summary_text,
