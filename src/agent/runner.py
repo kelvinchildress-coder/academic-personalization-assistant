@@ -13,10 +13,17 @@ Orchestrates one tick of the agent loop:
   4. For each coach we've recently messaged:
        * fetch_recent_dm_thread() since our outbound ts
        * for each new coach reply:
-           parse_reply() -> StructuredPatch
-           config_writer.apply_patch()
-           on success: clear matching dedupe keys from asked_log so
-                       follow-up gaps for that field are detected fresh.
+           NEW (Phase 2): try dispatch_message() first to catch
+              free-form intents like "Marcus is out today" or
+              "yes" / "no" against a pending proposal.
+              If kind in {staged, confirmed, dropped, refined,
+              needs_clarification}, the message is consumed and we
+              skip the gap-driven path.
+           Otherwise:
+             parse_reply() -> StructuredPatch
+             config_writer.apply_patch()
+             on success: clear matching dedupe keys from asked_log so
+                         follow-up gaps for that field are detected fresh.
   5. Persist asked_log back to data/agent_state.json.
 
 A single tick is bounded by MAX_DMS_PER_TICK to avoid spamming Slack
@@ -36,6 +43,7 @@ from .gap_finder import GoalGap, find_gaps, is_phase_one
 from .question_drafter import draft_question
 from .reply_parser import parse_reply
 from .config_writer import apply_patch
+from .dispatcher import dispatch_message
 from .slack_io import SlackIO
 
 
@@ -61,6 +69,15 @@ class AgentState:
             last_inbound_ts_by_coach=dict(raw.get("last_inbound_ts_by_coach") or {}),
             version=int(raw.get("version") or STATE_VERSION),
         )
+
+
+@dataclass
+class TickResult:
+    dms_sent: int = 0
+    replies_parsed: int = 0
+    patches_applied: int = 0
+    parse_failures: int = 0
+    intents_handled: int = 0   # NEW: Phase-2 dispatcher hits
 
 
 def _load_state(path: Path) -> AgentState:
@@ -108,40 +125,37 @@ def _open_gaps_for_student(
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class TickResult:
-    dms_sent: int = 0
-    replies_parsed: int = 0
-    patches_applied: int = 0
-    parse_failures: int = 0
-    phase: str = "phase2"
-
-
 def run_tick(
     *,
-    repo_root: Path,
-    coach_slack_ids: Dict[str, str],
+    students_path: Path,
+    coaches_path: Path,
+    state_path: Path,
+    pending_path: Optional[Path] = None,
     today: Optional[date] = None,
     slack: Optional[SlackIO] = None,
 ) -> TickResult:
     today = today or date.today()
-    state_path = repo_root / "data" / "agent_state.json"
-    students_path = repo_root / "config" / "students.json"
-    coaches_path = repo_root / "config" / "coaches.json"
-
     state = _load_state(state_path)
+    result = TickResult()
+
     students_blob = json.loads(students_path.read_text())
     coaches_blob = json.loads(coaches_path.read_text())
+    coach_slack_ids: Dict[str, str] = {
+        cn: cinfo.get("slack_id") or ""
+        for cn, cinfo in (coaches_blob.get("coaches") or {}).items()
+    }
+
+    if pending_path is None:
+        pending_path = state_path.parent / "pending_proposals.json"
 
     gaps = find_gaps(
         students_config=students_blob,
         coaches_config=coaches_blob,
         asked_log=state.asked_log,
-        today=today,
     )
-    result = TickResult(phase="phase1" if is_phase_one(gaps) else "phase2")
 
-    slack = slack or SlackIO()
+    if slack is None:
+        slack = SlackIO()
 
     # --- Outbound: draft + send DMs for top-priority gaps ----------------
     sent = 0
@@ -169,10 +183,11 @@ def run_tick(
 
     # --- Inbound: parse coach replies since our last outbound -------------
     for coach_name, coach_user_id in coach_slack_ids.items():
+        if not coach_user_id:
+            continue
+
         last_outbound = state.last_outbound_ts_by_coach.get(coach_name)
         last_inbound = state.last_inbound_ts_by_coach.get(coach_name)
-        # We listen since whichever marker is older — that way, if the
-        # coach replies before we send a new question, we still catch it.
         marker = last_inbound or last_outbound
         since_dt = _ts_to_datetime(marker) if marker else None
 
@@ -180,28 +195,55 @@ def run_tick(
         if not msgs:
             continue
 
-        # Pair each coach reply with the most recent open gap for one of
-        # their students. This is best-effort; the LLM/regex parser
-        # often handles multi-student replies but we keep matching simple.
         coach_students: List[str] = (coaches_blob.get("coaches") or {}).get(coach_name, [])
-        # Lisa Willis -> Lisa C Willis tolerance.
         if not coach_students and coach_name == "Lisa Willis":
             coach_students = (coaches_blob.get("coaches") or {}).get("Lisa C Willis", [])
 
+        # Open-gap map for the gap-driven fallback path.
         open_gaps_by_student: Dict[str, List[GoalGap]] = {}
         for student in coach_students:
             og = _open_gaps_for_student(student, students_blob, coaches_blob)
             if og:
                 open_gaps_by_student[student] = og
 
-        # Reload students_blob lazily after each successful patch so
-        # follow-up replies see updated state.
         for m in msgs:
             if m.is_bot:
                 continue
-            text = (m.text or "").strip()
+            text = m.text.strip()
             if not text:
                 continue
+
+            # -- NEW: Phase-2 intent dispatch FIRST ---------------------
+            try:
+                dr = dispatch_message(
+                    text=text,
+                    coach_slack_id=coach_user_id,
+                    channel_id=coach_user_id,   # DM channel is per-user
+                    speaker_coach_name=coach_name,
+                    students_blob=students_blob,
+                    coaches_blob=coaches_blob,
+                    students_path=students_path,
+                    pending_path=pending_path,
+                    slack=slack,
+                    anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
+                    today=today,
+                )
+            except Exception as exc:   # noqa: BLE001
+                print(f"WARN: dispatcher raised on coach={coach_name}: {exc}")
+                dr = None
+
+            if dr is not None and dr.kind in (
+                "staged", "confirmed", "dropped",
+                "refined", "needs_clarification", "error",
+            ):
+                # Intent layer consumed the message. Mark inbound and skip
+                # the gap-driven path. Reload students_blob if we mutated it.
+                state.last_inbound_ts_by_coach[coach_name] = m.ts
+                result.intents_handled += 1
+                if dr.kind == "confirmed" and dr.affected_students > 0:
+                    students_blob = json.loads(students_path.read_text())
+                continue
+            # -- end NEW -----------------------------------------------
 
             # Pick a target gap. If only one student has an open gap,
             # use it; otherwise try matching by student name in the text.
@@ -234,7 +276,7 @@ def run_tick(
                 ok, errs = apply_patch(patch, students_path=students_path)
                 if ok:
                     result.patches_applied += 1
-                    # Clear any asked_log entries this patch resolves.
+                    state.last_inbound_ts_by_coach[coach_name] = m.ts
                     students_blob = json.loads(students_path.read_text())
                     refreshed = _open_gaps_for_student(
                         patch.student_name, students_blob, coaches_blob
@@ -245,8 +287,6 @@ def run_tick(
                         if not k.startswith(f"{patch.student_name}|")
                         or k in refreshed_keys
                     }
-                    # Refresh open_gaps_by_student so subsequent messages
-                    # in this loop see the new state.
                     open_gaps_by_student[patch.student_name] = refreshed
                     if not refreshed:
                         open_gaps_by_student.pop(patch.student_name, None)
@@ -254,48 +294,8 @@ def run_tick(
                     result.parse_failures += 1
                     print(
                         f"WARN: rejected patch for {patch.student_name}: "
-                        f"{', '.join(errs)}"
+                        f"{'; '.join(errs)}"
                     )
-
-            state.last_inbound_ts_by_coach[coach_name] = m.ts
 
     _save_state(state_path, state)
     return result
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-
-def _load_coach_slack_ids() -> Dict[str, str]:
-    raw = os.environ.get("COACH_SLACK_IDS_JSON", "").strip()
-    if not raw:
-        return {}
-    try:
-        return dict(json.loads(raw))
-    except json.JSONDecodeError:
-        print("WARN: COACH_SLACK_IDS_JSON is not valid JSON; ignoring.")
-        return {}
-
-
-def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    coach_ids = _load_coach_slack_ids()
-    if not coach_ids:
-        print(
-            "NOOP: COACH_SLACK_IDS_JSON is empty; agent has no one to DM. "
-            "Add coach Slack IDs and re-run."
-        )
-        return 0
-    result = run_tick(repo_root=repo_root, coach_slack_ids=coach_ids)
-    print(
-        f"OK: phase={result.phase} dms={result.dms_sent} "
-        f"replies={result.replies_parsed} patches={result.patches_applied} "
-        f"parse_failures={result.parse_failures}"
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
