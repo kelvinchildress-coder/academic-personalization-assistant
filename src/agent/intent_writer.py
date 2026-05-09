@@ -85,7 +85,7 @@ def _expand_group_targets(
     coaches_blob: Dict[str, Any],
 ) -> List[str]:
     """Return the list of student names a GroupSelector resolves to."""
-  students = students_blob.get("students") or {}
+    students = students_blob.get("students") or {}
 
     if selector.scope == "speaker":
         speaker = selector.speaker_coach
