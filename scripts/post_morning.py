@@ -141,7 +141,7 @@ def main() -> int:
         coach_slack_ids=coach_slack_ids,
     )
 
-   if payload.is_stale:
+    if payload.is_stale:
         # Locked rule: skip the post entirely.
         print("STALE: skipping morning post; DMing head coach.")
         if head_coach_slack_id and payload.head_coach_dm_text:
