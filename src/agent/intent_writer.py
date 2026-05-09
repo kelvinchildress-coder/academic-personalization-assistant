@@ -43,6 +43,7 @@ from .intents import (
     HalfTarget,
     GroupRule,
     GroupSelector,
+    SetTestBy,
     grades_for_band,
 )
 from .pending_state import Proposal
@@ -139,6 +140,15 @@ def _summarize_half(h: HalfTarget) -> str:
     )
 
 
+def _summarize_set_test_by(s: SetTestBy) -> str:
+    parts = [f"Set test-out for {s.student} ({s.subject})"]
+    if s.target_grade is not None:
+        parts.append(f"at grade {s.target_grade}")
+    if s.target_date is not None:
+        parts.append(f"by {s.target_date.isoformat()}")
+    return " ".join(parts) + "."
+
+
 def _summarize_group(g: GroupRule, expanded: List[str]) -> str:
     end = _add_school_days(g.start_date, g.days)
     verb = "Pause" if g.action == "pause" else "Half target"
@@ -178,22 +188,7 @@ def build_proposal(
             summary_text=_summarize_pause(intent),
             raw_coach_text=intent.raw_text,
         )
-    if isinstance(intent, HalfTarget):
-        return Proposal(
-            coach_slack_id=coach_slack_id,
-            channel_id=channel_id,
-            intent_kind="half_target",
-            payload={
-                "student_name": intent.student_name,
-                "subject": intent.subject,
-                "start_date": intent.start_date,
-                "days": intent.days,
-            },
-            expanded_targets=[intent.student_name],
-            summary_text=_summarize_half(intent),
-            raw_coach_text=intent.raw_text,
-        )
-    if isinstance(intent, GroupRule):
+ if isinstance(intent, GroupRule):
         expanded = _expand_group_targets(
             intent.selector,
             students_blob=students_blob,
@@ -217,6 +212,23 @@ def build_proposal(
             },
             expanded_targets=expanded,
             summary_text=_summarize_group(intent, expanded),
+            raw_coach_text=intent.raw_text,
+        )
+    if isinstance(intent, SetTestBy):
+        # target_date is a Python date; serialize to ISO for JSON-safe payload.
+        td_iso = intent.target_date.isoformat() if intent.target_date else None
+        return Proposal(
+            coach_slack_id=coach_slack_id,
+            channel_id=channel_id,
+            intent_kind="set_test_by",
+            payload={
+                "student_name": intent.student,
+                "subject": intent.subject,
+                "target_grade": intent.target_grade,
+                "target_date": td_iso,
+            },
+            expanded_targets=[intent.student],
+            summary_text=_summarize_set_test_by(intent),
             raw_coach_text=intent.raw_text,
         )
     raise ValueError(f"Unsupported intent type for proposal: {type(intent).__name__}")
@@ -265,7 +277,7 @@ def apply_proposal(
     blob = _load_students(students_path)
     students = blob.get("students") or {}
 
-    if proposal.intent_kind == "pause":
+if proposal.intent_kind == "pause":
         targets = [proposal.payload["student_name"]]
         builder = _exception_for_pause
         payload = proposal.payload
@@ -283,6 +295,38 @@ def apply_proposal(
             "start_date": proposal.payload["start_date"],
             "days": proposal.payload["days"],
         }
+    elif proposal.intent_kind == "set_test_by":
+        # SetTestBy writes student.overrides.test_by[subject] directly
+        # (Tier 0b), not the exceptions list. Handle inline and return.
+        student = proposal.payload["student_name"]
+        subject = proposal.payload["subject"]
+        target_grade = proposal.payload.get("target_grade")
+        target_date = proposal.payload.get("target_date")
+        if student not in students:
+            return False, [f"unknown student '{student}'"], 0
+        profile = students[student]
+        overrides = profile.get("overrides")
+        if not isinstance(overrides, dict):
+            overrides = {}
+            profile["overrides"] = overrides
+        test_by = overrides.get("test_by")
+        if not isinstance(test_by, dict):
+            test_by = {}
+            overrides["test_by"] = test_by
+        # Preserve any existing test_by[subject] fields not being replaced
+        # (e.g. coach earlier set target_grade only, now sets target_date only).
+        existing = test_by.get(subject) if isinstance(test_by.get(subject), dict) else {}
+        merged = dict(existing)
+        if target_grade is not None:
+            merged["target_grade"] = int(target_grade)
+        if target_date is not None:
+            merged["target_date"] = target_date  # already ISO string
+        merged["source_coach"] = source_coach_name
+        merged["raw_text"] = proposal.raw_coach_text
+        merged["created_at"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        test_by[subject] = merged
+        _save_students(students_path, blob)
+        return True, [], 1
     else:
         return False, [f"unknown intent_kind '{proposal.intent_kind}'"], 0
 
