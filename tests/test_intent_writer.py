@@ -20,16 +20,13 @@ from src.agent.pending_state import (
 
 @pytest.fixture
 def coaches_blob():
+    # Production schema: dict-of-list (bare list of student names).
+    # Slack IDs are NOT carried in coaches.json in production; they
+    # come from the COACH_SLACK_IDS_JSON env var.
     return {
         "coaches": {
-            "Coach Lisa C Willis": {
-                "slack_id": "U_LISA",
-                "students": ["Maya", "Marcus", "Jordan"],
-            },
-            "Coach Bo Sandler": {
-                "slack_id": "U_BO",
-                "students": ["Sam"],
-            },
+            "Coach Lisa C Willis": ["Maya", "Marcus", "Jordan"],
+            "Coach Bo Sandler": ["Sam"],
         }
     }
 
