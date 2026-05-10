@@ -1,0 +1,12 @@
+{
+  "_comment": "Session calendar for Texas Sports Academy. Read by the Next.js dashboard (web/src/lib/sessions.ts) for the window selector and stale-banner logic. The Python side does NOT read this file. Keys: id (sortable), name (display), startDate/endDate (ISO YYYY-MM-DD, inclusive). When a new school year is approaching, append entries here. The dashboard shows a stale-banner to the head coach if no session covers today AND no future sessions exist.",
+  "version": 1,
+  "sessions": [
+    { "id": "2025-26-S5", "name": "SY25-26 Session 5", "startDate": "2026-04-27", "endDate": "2026-06-05" },
+    { "id": "2026-27-S1", "name": "SY26-27 Session 1", "startDate": "2026-08-12", "endDate": "2026-10-02" },
+    { "id": "2026-27-S2", "name": "SY26-27 Session 2", "startDate": "2026-10-13", "endDate": "2026-12-18" },
+    { "id": "2026-27-S3", "name": "SY26-27 Session 3", "startDate": "2027-01-04", "endDate": "2027-02-19" },
+    { "id": "2026-27-S4", "name": "SY26-27 Session 4", "startDate": "2027-03-01", "endDate": "2027-04-16" },
+    { "id": "2026-27-S5", "name": "SY26-27 Session 5", "startDate": "2027-04-26", "endDate": "2027-06-04" }
+  ]
+}
