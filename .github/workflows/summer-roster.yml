@@ -6,8 +6,7 @@ name: summer-roster
 on:
   # schedule:
   #   - cron: "0 14 15 7 *"   # July 15, 9am Central
-  workflow_dispatch: {}
-  
+ 
   workflow_dispatch:
     inputs:
       force:
