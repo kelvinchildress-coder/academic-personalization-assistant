@@ -9,7 +9,6 @@ import Google from "next-auth/providers/google";
  * architectural constraint on the application, not a per-deployment knob.
  * Changing the allowed domains requires a code commit + deploy.
  */
-
 const ALLOWED_EMAIL_DOMAINS = [
   "sportsacademy.school",
   "alpha.school",
@@ -31,15 +30,18 @@ export const authConfig: NextAuthConfig = {
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
   ],
-
-  // JWT-only session strategy — no database. Default max age is 30 days.
-  session: { strategy: "jwt" },
-
+  // JWT-only session strategy — no database. maxAge is shortened from the
+  // 30-day default to 8 hours so an unattended laptop can't keep a session
+  // alive overnight. Coaches re-authenticate at the start of each work day,
+  // which is acceptable friction given the PII surface.
+  session: {
+    strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 hours, in seconds
+  },
   pages: {
     signIn: "/login",
     error: "/login",
   },
-
   callbacks: {
     /**
      * Reject any sign-in whose email is not on an allowed domain. Auth.js
@@ -48,7 +50,6 @@ export const authConfig: NextAuthConfig = {
     async signIn({ user }) {
       return isAllowedEmail(user?.email);
     },
-
     /**
      * Mirror the user's email and name onto the JWT so server components
      * can read them without re-hitting the provider.
@@ -60,20 +61,20 @@ export const authConfig: NextAuthConfig = {
       }
       return token;
     },
-
     /**
      * Project the JWT into the session object that Server / Client
      * Components see via auth() / useSession().
      */
     async session({ session, token }) {
       if (session.user) {
-        session.user.email = (token.email as string | undefined) ?? session.user.email;
-        session.user.name = (token.name as string | undefined) ?? session.user.name;
+        session.user.email =
+          (token.email as string | undefined) ?? session.user.email;
+        session.user.name =
+          (token.name as string | undefined) ?? session.user.name;
       }
       return session;
     },
   },
-
   trustHost: true,
 };
 
