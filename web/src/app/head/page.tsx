@@ -1,27 +1,26 @@
 /**
  * Phase 7 Part 8 — Head overview page (rewritten, complete).
  *
- * Changes from Part 6:
- *  - Header import + breadcrumb.
- *  - Search box (Q8-10 A) matching student name + coach name + concerns
- *    (Q8-11 C) — implemented as URL ?q=... param so the server filters
- *    the rendered list, with HeadSearchAndExport as a small client widget
- *    for the input + CSV button.
- *  - CSV export button (Q8-12 A) for the currently filtered & windowed view.
- *  - Responsive: dense table on >=640px, stacked cards on <640px (Q8-5 C).
- *  - Stale-banner (Q8-8 Mechanism A): if data/sessions.json is empty or
- *    has no current/future session, show a banner with a link to the
- *    GitHub web editor for the file.
- *  - WindowSelector takes sessions + currentSessionId props (Q8-9).
+ * Cycle D fix: imports use the real exports.
+ *  - aggregate            -> aggregateRange
+ *  - getSnapshotsForRange -> readRange
+ *  - resolveWindow        -> now exported by ./lib/window
+ *
+ * aggregateRange takes a single Snapshot[] + today + {currentDays, priorDays}
+ * and splits the current/prior windows internally. So we fetch ONE
+ * range that spans both halves, then hand it off.
+ *
+ * Header import + breadcrumb. Search box (Q8-10/Q8-11) and CSV (Q8-12)
+ * are inside HeadSearchAndExport. Stale-banner (Q8-8 Mechanism A).
+ * WindowSelector takes sessions + currentSessionId props (Q8-9).
  */
-
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/Header";
 import { WindowSelector } from "@/components/WindowSelector";
 import { isHeadCoach } from "@/lib/authz";
-import { aggregate } from "@/lib/aggregate";
-import { getSnapshotsForRange } from "@/lib/githubData";
+import { aggregateRange } from "@/lib/aggregate";
+import { readRange } from "@/lib/githubData";
 import {
   getSessions,
   findCurrentSession,
@@ -54,20 +53,16 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
 
   const wParam = searchParams.w ?? "30d";
   const qParam = (searchParams.q ?? "").trim();
-  const windowResolution = resolveWindow(wParam, sessions, todayIso);
 
-  const snapshots = await getSnapshotsForRange(
-    windowResolution.currentStart,
-    windowResolution.currentEnd
-  );
-  const priorSnapshots = await getSnapshotsForRange(
-    windowResolution.priorStart,
-    windowResolution.priorEnd
-  );
+  const win = resolveWindow(wParam, sessions, todayIso);
 
-  const result = aggregate(snapshots, priorSnapshots, {
-    currentDays: windowResolution.currentDays,
-    priorDays: windowResolution.priorDays,
+  // Fetch one continuous range that spans prior+current; aggregateRange
+  // splits internally based on currentDays/priorDays.
+  const allSnaps = await readRange(win.priorStart, win.currentEnd);
+
+  const result = aggregateRange(allSnaps, win.currentEnd, {
+    currentDays: win.currentDays,
+    priorDays: win.priorDays,
   });
 
   const allStudents: StudentMetrics[] = Object.values(result.perStudent);
@@ -84,7 +79,7 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
     : allStudents;
 
   filtered.sort(
-    (a, b) => b.severity - a.severity || a.name.localeCompare(b.name)
+    (a, b) => b.severity - a.severity || a.name.localeCompare(b.name),
   );
 
   return (
@@ -129,9 +124,8 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
         </div>
 
         <p className="text-sm text-zinc-500 mb-3">
-          Window: {windowResolution.label} ({windowResolution.currentDays}{" "}
-          days) · {filtered.length} of {allStudents.length} student
-          {allStudents.length === 1 ? "" : "s"}
+          Window: {win.label} ({win.currentDays} days) · {filtered.length} of{" "}
+          {allStudents.length} student{allStudents.length === 1 ? "" : "s"}
           {qParam ? (
             <>
               {" · "}filter: <span className="font-mono">{qParam}</span>
@@ -178,7 +172,7 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
                       <td className="px-3 py-2">
                         <Link
                           href={`/coach/${slugify(s.coach)}/student/${slugify(
-                            s.name
+                            s.name,
                           )}?w=${encodeURIComponent(wParam)}`}
                           className="text-sky-700 hover:underline"
                         >
@@ -188,7 +182,7 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
                       <td className="px-3 py-2 text-zinc-700">
                         <Link
                           href={`/coach/${slugify(s.coach)}?w=${encodeURIComponent(
-                            wParam
+                            wParam,
                           )}`}
                           className="hover:underline"
                         >
@@ -202,8 +196,9 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
                         {s.deficitTotal.toFixed(0)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        {s.deficitDelta >= 0 ? "+" : ""}
-                        {s.deficitDelta.toFixed(0)}
+                        {s.deficitDelta === null
+                          ? "—"
+                          : `${s.deficitDelta >= 0 ? "+" : ""}${s.deficitDelta.toFixed(0)}`}
                       </td>
                       <td className="px-3 py-2 text-zinc-600">
                         {s.concerns.length === 0 ? (
@@ -224,7 +219,7 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
                 <Link
                   key={s.name}
                   href={`/coach/${slugify(s.coach)}/student/${slugify(
-                    s.name
+                    s.name,
                   )}?w=${encodeURIComponent(wParam)}`}
                   className="block rounded-md border border-zinc-200 bg-white p-3 hover:bg-zinc-50"
                 >
@@ -245,8 +240,9 @@ export default async function HeadOverviewPage({ searchParams }: Props) {
                     <div>
                       Δ:{" "}
                       <span className="tabular-nums">
-                        {s.deficitDelta >= 0 ? "+" : ""}
-                        {s.deficitDelta.toFixed(0)}
+                        {s.deficitDelta === null
+                          ? "—"
+                          : `${s.deficitDelta >= 0 ? "+" : ""}${s.deficitDelta.toFixed(0)}`}
                       </span>
                     </div>
                   </div>
