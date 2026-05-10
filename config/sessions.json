@@ -15,7 +15,7 @@
       "sy": "26-27",
       "sessions": [
         {"n": 1, "start": "2026-08-12", "end": "2026-10-02", "tracked": true},
-        {"n": 2, "start": "2026-10-12", "end": "2026-12-18", "tracked": true},
+        {"n": 2, "start": "2026-10-13", "end": "2026-12-18", "tracked": true},
         {"n": 3, "start": "2027-01-04", "end": "2027-02-19", "tracked": true},
         {"n": 4, "start": "2027-03-01", "end": "2027-04-16", "tracked": true},
         {"n": 5, "start": "2027-04-26", "end": "2027-06-04", "tracked": true}
