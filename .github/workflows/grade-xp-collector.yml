@@ -1,9 +1,12 @@
+# DISABLED — paused during Phase 1+ upgrade build.
+# To re-enable scheduled runs, uncomment the `schedule:` block below.
+# Manual runs via the Actions tab still work.
 name: grade-xp-collector
 
 on:
-  schedule:
-    # Hourly during likely school hours (UTC roughly covers 06:00-22:00 CT).
-    - cron: "10 12-23 * * 1-5"
+  # schedule:
+  #   # Hourly during likely school hours (UTC roughly covers 06:00-22:00 CT).
+  #   - cron: "10 12-23 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
