@@ -6,8 +6,8 @@ name: morning-report
 
 on:
   # schedule:
-  #   - cron: "0 12 * * 1-5"   # 7am Central, weekdays
-   workflow_dispatch: {}
+  #   - cron: "0 12 * * 1-5"  # 7am Central, weekdays
+  workflow_dispatch: {}
 
 permissions:
   contents: write
