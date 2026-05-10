@@ -1,5 +1,4 @@
 import "server-only";
-
 import { GitHubDataError, type Snapshot } from "./types";
 
 /**
@@ -17,6 +16,14 @@ import { GitHubDataError, type Snapshot } from "./types";
  *   - listHistoryDates(): Promise<string[]>
  *   - readSnapshot(dateIso): Promise<Snapshot | null>
  *   - readRange(startIso, endIso): Promise<Snapshot[]>
+ *   - fetchJson<T>(path): Promise<T>
+ *
+ * Cycle D: fetchJson<T>(path) added so non-history config/data JSON
+ * files (config/coach_emails.json, data/sessions.json, future
+ * Phase-6 ask-targets) can be read through the same authenticated
+ * code path. Path is repo-relative (no leading slash). Throws
+ * GitHubDataError on any non-OK response so callers can decide whether
+ * to swallow (e.g. sessions.ts wraps in try/catch) or surface.
  *
  * There are intentionally NO write methods on this module.
  */
@@ -24,6 +31,7 @@ import { GitHubDataError, type Snapshot } from "./types";
 // ---------------------------------------------------------------------------
 // Constants. Owner/repo and history path are architectural, not per-deploy.
 // ---------------------------------------------------------------------------
+
 const REPO_OWNER = "kelvinchildress-coder";
 const REPO_NAME = "academic-personalization-assistant";
 const HISTORY_PATH = "data/history";
@@ -37,10 +45,12 @@ const CACHE_TTL_MS = 60 * 1000;
 // ---------------------------------------------------------------------------
 // Cache. Module-level Maps; survive across requests on a warm Vercel instance.
 // ---------------------------------------------------------------------------
+
 type CacheEntry<T> = { value: T; expiresAt: number };
 
 const listingCache: { current: CacheEntry<string[]> | null } = { current: null };
 const snapshotCache = new Map<string, CacheEntry<Snapshot | null>>();
+const jsonCache = new Map<string, CacheEntry<unknown>>();
 
 function isFresh<T>(entry: CacheEntry<T> | null | undefined): boolean {
   return !!entry && entry.expiresAt > Date.now();
@@ -62,6 +72,7 @@ function setCache<T>(
 // ---------------------------------------------------------------------------
 // Internal: authenticated GitHub fetch.
 // ---------------------------------------------------------------------------
+
 function authHeader(): Record<string, string> {
   const token = process.env.GITHUB_DATA_READ_PAT;
   if (!token) {
@@ -104,6 +115,7 @@ async function ghFetch(endpoint: string): Promise<Response> {
 // ---------------------------------------------------------------------------
 // Public: listHistoryDates
 // ---------------------------------------------------------------------------
+
 const DATE_FILENAME_RE = /^(\d{4}-\d{2}-\d{2})\.json$/;
 
 /**
@@ -114,12 +126,10 @@ export async function listHistoryDates(): Promise<string[]> {
   if (isFresh(listingCache.current)) {
     return listingCache.current!.value;
   }
-
   const endpoint =
     `/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HISTORY_PATH}` +
     `?ref=${REPO_REF}`;
   const resp = await ghFetch(endpoint);
-
   if (resp.status === 404) {
     // No history directory yet — empty list, still cache it.
     setCache(listingCache, null, []);
@@ -131,7 +141,6 @@ export async function listHistoryDates(): Promise<string[]> {
       { status: resp.status, endpoint },
     );
   }
-
   const body = (await resp.json()) as ContentsResponseList;
   const dates: string[] = [];
   for (const entry of body) {
@@ -140,7 +149,6 @@ export async function listHistoryDates(): Promise<string[]> {
     if (m) dates.push(m[1]);
   }
   dates.sort();
-
   setCache(listingCache, null, dates);
   return dates;
 }
@@ -148,6 +156,7 @@ export async function listHistoryDates(): Promise<string[]> {
 // ---------------------------------------------------------------------------
 // Public: readSnapshot
 // ---------------------------------------------------------------------------
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -161,17 +170,14 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
       { status: null, endpoint: "(input)" },
     );
   }
-
   const cached = snapshotCache.get(dateIso);
   if (isFresh(cached)) {
     return cached!.value;
   }
-
   const endpoint =
     `/repos/${REPO_OWNER}/${REPO_NAME}/contents/${HISTORY_PATH}/${dateIso}.json` +
     `?ref=${REPO_REF}`;
   const resp = await ghFetch(endpoint);
-
   if (resp.status === 404) {
     setCache(snapshotCache, dateIso, null);
     return null;
@@ -182,7 +188,6 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
       { status: resp.status, endpoint },
     );
   }
-
   const body = (await resp.json()) as ContentsResponseFile;
   if (!body.content || body.encoding !== "base64") {
     throw new GitHubDataError(
@@ -190,7 +195,6 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
       { status: resp.status, endpoint },
     );
   }
-
   // Buffer.from is available in Node runtime on Vercel; atob would also work.
   const raw = Buffer.from(body.content, "base64").toString("utf-8");
   let parsed: unknown;
@@ -202,7 +206,6 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
       { status: resp.status, endpoint },
     );
   }
-
   // Light shape validation. Don't deep-validate every field; trust the
   // Python writer to produce valid output.
   if (
@@ -217,7 +220,6 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
       { status: resp.status, endpoint },
     );
   }
-
   const snap = parsed as Snapshot;
   setCache(snapshotCache, dateIso, snap);
   return snap;
@@ -226,6 +228,7 @@ export async function readSnapshot(dateIso: string): Promise<Snapshot | null> {
 // ---------------------------------------------------------------------------
 // Public: readRange
 // ---------------------------------------------------------------------------
+
 /**
  * Read every snapshot whose date falls in [startIso, endIso] inclusive.
  * Missing days are silently skipped. Returns snapshots in date order.
@@ -246,15 +249,12 @@ export async function readRange(
   if (startIso > endIso) {
     return [];
   }
-
   // Use the listing to know which dates to actually fetch — avoids 404
   // round-trips for every gap day.
   const allDates = await listHistoryDates();
   const inRange = allDates.filter((d) => d >= startIso && d <= endIso);
-
   // Fetch in parallel. Each readSnapshot has its own per-date cache.
   const snapshots = await Promise.all(inRange.map((d) => readSnapshot(d)));
-
   // Filter out any that came back null (race between listing and fetch).
   const out: Snapshot[] = [];
   for (const s of snapshots) {
@@ -265,11 +265,78 @@ export async function readRange(
 }
 
 // ---------------------------------------------------------------------------
+// Public: fetchJson<T>
+//
+// Cycle D addition. Reads an arbitrary repo-relative JSON file via the
+// GitHub Contents API using the same auth + cache pattern as
+// readSnapshot. Used by sessions.ts and coachRoster.ts.
+//
+// Throws GitHubDataError on any non-OK status (including 404). Callers
+// that want missing-file tolerance should wrap in try/catch (sessions.ts)
+// or .catch(() => null) (coachRoster.ts), matching their existing
+// behavior.
+// ---------------------------------------------------------------------------
+
+const PATH_RE = /^[a-zA-Z0-9_./-]+$/;
+
+export async function fetchJson<T>(path: string): Promise<T> {
+  if (typeof path !== "string" || path.length === 0 || !PATH_RE.test(path)) {
+    throw new GitHubDataError(
+      `Invalid path: ${path} (expected repo-relative path with no leading slash).`,
+      { status: null, endpoint: "(input)" },
+    );
+  }
+  if (path.startsWith("/") || path.includes("..")) {
+    throw new GitHubDataError(
+      `Invalid path: ${path} (no leading slash, no parent traversal).`,
+      { status: null, endpoint: "(input)" },
+    );
+  }
+
+  const cached = jsonCache.get(path);
+  if (isFresh(cached)) {
+    return cached!.value as T;
+  }
+
+  const endpoint =
+    `/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}` +
+    `?ref=${REPO_REF}`;
+  const resp = await ghFetch(endpoint);
+  if (!resp.ok) {
+    throw new GitHubDataError(
+      `Failed to fetch ${path} (HTTP ${resp.status}).`,
+      { status: resp.status, endpoint },
+    );
+  }
+  const body = (await resp.json()) as ContentsResponseFile;
+  if (!body.content || body.encoding !== "base64") {
+    throw new GitHubDataError(
+      `Unexpected response shape for ${path}.`,
+      { status: resp.status, endpoint },
+    );
+  }
+  const raw = Buffer.from(body.content, "base64").toString("utf-8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new GitHubDataError(
+      `${path} did not parse as JSON: ${(e as Error).message}.`,
+      { status: resp.status, endpoint },
+    );
+  }
+  setCache(jsonCache, path, parsed);
+  return parsed as T;
+}
+
+// ---------------------------------------------------------------------------
 // Test seam: lets unit tests reset module state between runs.
 // Not exported in production-facing index; named with __ prefix so it's
 // obviously internal.
 // ---------------------------------------------------------------------------
+
 export function __resetCacheForTests(): void {
   listingCache.current = null;
   snapshotCache.clear();
+  jsonCache.clear();
 }
