@@ -3,11 +3,11 @@
 # Manual runs via the Actions tab still work.
 name: agent-poll
 
-  on:
+on:
   # schedule:
   #   - cron: "..."
   workflow_dispatch: {}
-  
+
 permissions:
   contents: write
 
