@@ -1,153 +1,266 @@
-import { redirect } from "next/navigation";
-import Link from "next/link";
+/**
+ * Phase 7 Part 8 — Head overview page (rewritten, complete).
+ *
+ * Changes from Part 6:
+ *  - Header import + breadcrumb.
+ *  - Search box (Q8-10 A) matching student name + coach name + concerns
+ *    (Q8-11 C) — implemented as URL ?q=... param so the server filters
+ *    the rendered list, with HeadSearchAndExport as a small client widget
+ *    for the input + CSV button.
+ *  - CSV export button (Q8-12 A) for the currently filtered & windowed view.
+ *  - Responsive: dense table on >=640px, stacked cards on <640px (Q8-5 C).
+ *  - Stale-banner (Q8-8 Mechanism A): if data/sessions.json is empty or
+ *    has no current/future session, show a banner with a link to the
+ *    GitHub web editor for the file.
+ *  - WindowSelector takes sessions + currentSessionId props (Q8-9).
+ */
+
 import { auth } from "@/auth";
-import { listHistoryDates, readRange } from "@/lib/githubData";
-import { aggregateRange } from "@/lib/aggregate";
-import { buildCoachIndex, slugifyName } from "@/lib/slug";
+import { redirect } from "next/navigation";
+import { Header } from "@/components/Header";
+import { WindowSelector } from "@/components/WindowSelector";
 import { isHeadCoach } from "@/lib/authz";
-import { parseWindowParam } from "@/lib/window";
-import WindowSelector from "@/components/WindowSelector";
+import { aggregate } from "@/lib/aggregate";
+import { getSnapshotsForRange } from "@/lib/githubData";
+import {
+  getSessions,
+  findCurrentSession,
+  isCalendarStale,
+} from "@/lib/sessions";
+import { resolveWindow } from "@/lib/window";
+import { slugify } from "@/lib/slug";
+import Link from "next/link";
+import { HeadSearchAndExport } from "./HeadSearchAndExport";
+import type { StudentMetrics } from "@/lib/aggregate";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-interface PageProps {
-  searchParams: { window?: string | string[] };
+const SESSIONS_EDITOR_URL =
+  "https://github.com/kelvinchildress-coder/academic-personalization-assistant/edit/main/data/sessions.json";
+
+interface Props {
+  searchParams: { w?: string; q?: string };
 }
 
-/**
- * Phase 7 Part 6 — Head-coach overview.
- *
- * URL: /head[?window=30d|session|year]
- *
- * Authorization: head coach only. Non-head viewers are redirected to their
- * own coach roster (or to /login if there's no derivable own-slug).
- *
- * Layout (Q6-2 = b): flat all-students table across every coach, sorted by
- * severity desc. Each row has click-through to per-student detail and to
- * the owning coach's roster.
- */
-export default async function HeadOverviewPage({ searchParams }: PageProps) {
+export default async function HeadOverviewPage({ searchParams }: Props) {
   const session = await auth();
-  const viewerEmail = session?.user?.email ?? null;
-  if (!viewerEmail) {
-    redirect("/login");
-  }
+  if (!session?.user?.email) redirect("/login");
+  if (!isHeadCoach(session.user.email)) redirect("/");
 
-  if (!isHeadCoach(viewerEmail)) {
-    const ownSlug = slugifyName(session?.user?.name ?? "");
-    redirect(ownSlug ? `/coach/${ownSlug}` : "/");
-  }
+  const sessions = await getSessions();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentSession = findCurrentSession(sessions, todayIso);
+  const stale = isCalendarStale(sessions, todayIso);
 
-  const window = parseWindowParam(searchParams?.window);
+  const wParam = searchParams.w ?? "30d";
+  const qParam = (searchParams.q ?? "").trim();
+  const windowResolution = resolveWindow(wParam, sessions, todayIso);
 
-  const dates = await listHistoryDates();
-  if (dates.length === 0) {
-    return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
-        <h1 className="mb-2 text-xl font-semibold text-gray-900">No data yet</h1>
-        <p className="text-sm text-gray-700">
-          The history store has no usable snapshots. Once the daily snapshot
-          job runs, the overview will appear here.
-        </p>
-      </main>
-    );
-  }
+  const snapshots = await getSnapshotsForRange(
+    windowResolution.currentStart,
+    windowResolution.currentEnd
+  );
+  const priorSnapshots = await getSnapshotsForRange(
+    windowResolution.priorStart,
+    windowResolution.priorEnd
+  );
 
-  const today = dates[dates.length - 1];
-  const snaps = await readRange(today, window.days);
-  const latest = snaps[snaps.length - 1];
-
-  const result = aggregateRange(snaps, today, {
-    currentDays: window.days,
+  const result = aggregate(snapshots, priorSnapshots, {
+    currentDays: windowResolution.currentDays,
+    priorDays: windowResolution.priorDays,
   });
 
-  const coachIndex = latest ? buildCoachIndex(latest.students) : null;
-  const allStudents = Object.values(result.perStudent)
-    .slice()
-    .sort((a, b) => b.severity - a.severity);
+  const allStudents: StudentMetrics[] = Object.values(result.perStudent);
+
+  // Q8-11 C: search across name, coach, concerns
+  const qLower = qParam.toLowerCase();
+  const filtered = qLower
+    ? allStudents.filter((s) => {
+        if (s.name.toLowerCase().includes(qLower)) return true;
+        if (s.coach.toLowerCase().includes(qLower)) return true;
+        if (s.concerns.some((c) => c.toLowerCase().includes(qLower))) return true;
+        return false;
+      })
+    : allStudents;
+
+  filtered.sort(
+    (a, b) => b.severity - a.severity || a.name.localeCompare(b.name)
+  );
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Head-coach overview
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {window.label} through {today}. {allStudents.length} students
-            across {Object.keys(result.perCoach).length} coaches.
-          </p>
-        </div>
-        <WindowSelector />
-      </header>
+    <>
+      <Header
+        trail={[
+          { label: "Home", href: "/" },
+          { label: "Head overview" },
+        ]}
+      />
+      <main className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
+        {stale && (
+          <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm">
+            <p className="font-semibold text-amber-900">
+              Session calendar is out of date
+            </p>
+            <p className="mt-1 text-amber-900/90">
+              No current session covers today and no future sessions are on
+              file. Update{" "}
+              <a
+                href={SESSIONS_EDITOR_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sky-700 hover:underline"
+              >
+                data/sessions.json
+              </a>{" "}
+              to add upcoming sessions for the next school year.
+            </p>
+          </div>
+        )}
 
-      {allStudents.length === 0 ? (
-        <p className="text-sm text-gray-700">
-          No students in the latest snapshot.
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-900">
+            Head overview — all students
+          </h1>
+          <WindowSelector
+            value={wParam}
+            sessions={sessions}
+            currentSessionId={currentSession?.id ?? null}
+          />
+        </div>
+
+        <p className="text-sm text-zinc-500 mb-3">
+          Window: {windowResolution.label} ({windowResolution.currentDays}{" "}
+          days) · {filtered.length} of {allStudents.length} student
+          {allStudents.length === 1 ? "" : "s"}
+          {qParam ? (
+            <>
+              {" · "}filter: <span className="font-mono">{qParam}</span>
+            </>
+          ) : null}
         </p>
-      ) : (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-gray-300 text-left text-xs uppercase tracking-wide text-gray-600">
-              <th className="px-3 py-2 font-medium">Student</th>
-              <th className="px-3 py-2 font-medium">Coach</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Top concern</th>
-              <th className="px-3 py-2 font-medium text-right">Severity</th>
-              <th className="px-3 py-2 font-medium text-right">XP days behind</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allStudents.map((row) => {
-              const coachSlug =
-                coachIndex?.byName.get(row.coach) ?? slugifyName(row.coach);
-              const studentSlug = slugifyName(row.name);
-              const topConcern = row.concerns[0] ?? "—";
-              return (
-                <tr
-                  key={`${row.coach}::${row.name}`}
-                  className="border-b border-gray-200 hover:bg-gray-50"
+
+        <HeadSearchAndExport
+          rows={filtered}
+          initialQuery={qParam}
+          wParam={wParam}
+        />
+
+        {filtered.length === 0 ? (
+          <div className="rounded-md border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
+            No students match the current filter and window.
+          </div>
+        ) : (
+          <>
+            {/* Tablet+ table */}
+            <div className="hidden sm:block overflow-x-auto rounded-md border border-zinc-200 bg-white">
+              <table className="min-w-full text-sm">
+                <thead className="bg-zinc-50 text-zinc-600">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Student</th>
+                    <th className="px-3 py-2 text-left font-medium">Coach</th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Days behind
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Deficit XP
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium">
+                      Δ vs prior
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      Concerns
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                  {filtered.map((s) => (
+                    <tr key={s.name} className="hover:bg-zinc-50">
+                      <td className="px-3 py-2">
+                        <Link
+                          href={`/coach/${slugify(s.coach)}/student/${slugify(
+                            s.name
+                          )}?w=${encodeURIComponent(wParam)}`}
+                          className="text-sky-700 hover:underline"
+                        >
+                          {s.name}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2 text-zinc-700">
+                        <Link
+                          href={`/coach/${slugify(s.coach)}?w=${encodeURIComponent(
+                            wParam
+                          )}`}
+                          className="hover:underline"
+                        >
+                          {s.coach}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {s.daysBehind.toFixed(1)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {s.deficitTotal.toFixed(0)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {s.deficitDelta >= 0 ? "+" : ""}
+                        {s.deficitDelta.toFixed(0)}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-600">
+                        {s.concerns.length === 0 ? (
+                          <span className="text-zinc-400">—</span>
+                        ) : (
+                          s.concerns.join(", ")
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Phone cards */}
+            <div className="sm:hidden space-y-2">
+              {filtered.map((s) => (
+                <Link
+                  key={s.name}
+                  href={`/coach/${slugify(s.coach)}/student/${slugify(
+                    s.name
+                  )}?w=${encodeURIComponent(wParam)}`}
+                  className="block rounded-md border border-zinc-200 bg-white p-3 hover:bg-zinc-50"
                 >
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/coach/${coachSlug}/student/${studentSlug}`}
-                      className="text-blue-700 hover:underline"
-                    >
-                      {row.name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Link
-                      href={`/coach/${coachSlug}`}
-                      className="text-blue-700 hover:underline"
-                    >
-                      {row.coach}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.concerns.length === 0 ? (
-                      <span className="text-green-700">on track</span>
-                    ) : (
-                      <span className="text-amber-700">
-                        {row.concerns.length} concern
-                        {row.concerns.length === 1 ? "" : "s"}
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium text-zinc-900">{s.name}</div>
+                    <div className="text-xs text-zinc-500">
+                      {s.daysBehind.toFixed(1)} days behind
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">{s.coach}</div>
+                  <div className="mt-1 grid grid-cols-2 gap-2 text-xs text-zinc-600">
+                    <div>
+                      Deficit:{" "}
+                      <span className="tabular-nums">
+                        {s.deficitTotal.toFixed(0)} XP
                       </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-gray-700">{topConcern}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-900">
-                    {row.severity.toFixed(2)}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                    {row.daysBehind}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </main>
+                    </div>
+                    <div>
+                      Δ:{" "}
+                      <span className="tabular-nums">
+                        {s.deficitDelta >= 0 ? "+" : ""}
+                        {s.deficitDelta.toFixed(0)}
+                      </span>
+                    </div>
+                  </div>
+                  {s.concerns.length > 0 && (
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {s.concerns.join(", ")}
+                    </div>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+    </>
   );
 }
