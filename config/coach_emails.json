@@ -1,0 +1,13 @@
+{
+  "_comment": "Display-name -> email mapping for coach authz in the Next.js dashboard. Edit this file (no code deploy needed) when a coach is added, removed, or renamed. The Python side does NOT read this file. Keep the keys exactly aligned with the keys under config/coaches.json -> coaches. Head coach is identified separately via web/src/lib/authz.ts HEAD_COACH_EMAILS.",
+  "version": 1,
+  "emails": {
+    "Ella Alexander": "ella.alexander@sportsacademy.school",
+    "Amir Lewis": "amir.lewis@alpha.school",
+    "DJ Tripoli": "david.tripoli@alpha.school",
+    "Graham Spraker": "graham.spraker@sportsacademy.school",
+    "Cait Arzu": "caitlin.arzu@alpha.school",
+    "Lisa C Willis": "lisa.willis@sportsacademy.school",
+    "Greg Annan": "greg.annan@sportsacademy.school"
+  }
+}
