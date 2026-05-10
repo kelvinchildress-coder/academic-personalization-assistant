@@ -1,13 +1,7 @@
 /**
- * Phase 7 Part 8 — Student detail page (rewritten).
+ * Phase 7 Part 8 — Student detail page (Cycle D build-fix).
  *
- * Changes from Part 6:
- *  - Header import + breadcrumb (Home › [Head overview › ] Coach › Student).
- *  - Subject Targets card (Q8-1 / Q8-2 A): per-subject avg target vs avg
- *    actual over the window, using SubjectSnap.target_xp directly.
- *    Caption "(based on N days)" when N < 5 (Q8-1-caption).
- *  - Responsive: cards stack on <640px.
- *  - Email-map authz via requireCoachOrRedirect.
+ * Calls aggregateRange, readRange, resolveWindow.
  */
 
 import { auth } from "@/auth";
@@ -15,8 +9,8 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/Header";
 import { WindowSelector } from "@/components/WindowSelector";
 import { requireCoachOrRedirect } from "@/lib/authz";
-import { aggregate } from "@/lib/aggregate";
-import { getSnapshotsForRange } from "@/lib/githubData";
+import { aggregateRange } from "@/lib/aggregate";
+import { readRange } from "@/lib/githubData";
 import { getSessions, findCurrentSession } from "@/lib/sessions";
 import { resolveWindow } from "@/lib/window";
 import { rollupSubjectTargets } from "@/lib/subjectTargets";
@@ -40,29 +34,25 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const sessions = await getSessions();
   const todayIso = new Date().toISOString().slice(0, 10);
   const currentSession = findCurrentSession(sessions, todayIso);
-
   const wParam = searchParams.w ?? "30d";
-  const windowResolution = resolveWindow(wParam, sessions, todayIso);
+  const win = resolveWindow(wParam, sessions, todayIso);
 
-  const snapshots = await getSnapshotsForRange(
-    windowResolution.currentStart,
-    windowResolution.currentEnd
-  );
-  const priorSnapshots = await getSnapshotsForRange(
-    windowResolution.priorStart,
-    windowResolution.priorEnd
+  const allSnaps = await readRange(win.priorStart, win.currentEnd);
+  // Snapshots restricted to the current window only — used for per-subject rollup.
+  const currentSnaps = allSnaps.filter(
+    (s) => s.date >= win.currentStart && s.date <= win.currentEnd,
   );
 
-  const result = aggregate(snapshots, priorSnapshots, {
-    currentDays: windowResolution.currentDays,
-    priorDays: windowResolution.priorDays,
+  const result = aggregateRange(allSnaps, win.currentEnd, {
+    currentDays: win.currentDays,
+    priorDays: win.priorDays,
   });
 
-  // Resolve the student by matching slug across all students in roster.
   const studentEntry = Object.values(result.perStudent).find(
-    (s) => slugify(s.name) === params.studentId
+    (s) => slugify(s.name) === params.studentId,
   );
-  const coachDisplayName = studentEntry?.coach ?? guard.coachName ?? params.coachId;
+  const coachDisplayName =
+    studentEntry?.coach ?? guard.coachName ?? params.coachId;
 
   if (!studentEntry || slugify(studentEntry.coach) !== params.coachId) {
     return (
@@ -70,7 +60,10 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         <Header
           trail={[
             { label: "Home", href: "/" },
-            { label: coachDisplayName, href: `/coach/${params.coachId}?w=${encodeURIComponent(wParam)}` },
+            {
+              label: coachDisplayName,
+              href: `/coach/${params.coachId}?w=${encodeURIComponent(wParam)}`,
+            },
             { label: "Not found" },
           ]}
         />
@@ -83,8 +76,8 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
     );
   }
 
-  // Per-subject rollup using SubjectSnap.target_xp (Q8-1 final).
-  const subjectTargets = rollupSubjectTargets(snapshots, studentEntry.name);
+  // Per-subject rollup uses ONLY the current window snapshots.
+  const subjectTargets = rollupSubjectTargets(currentSnaps, studentEntry.name);
 
   return (
     <>
@@ -114,21 +107,29 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
         </div>
 
         <p className="text-sm text-zinc-500 mb-4">
-          Coach: {studentEntry.coach} · Window: {windowResolution.label} ({windowResolution.currentDays} days)
+          Coach: {studentEntry.coach} · Window: {win.label} ({win.currentDays}{" "}
+          days)
         </p>
 
         {/* Headline metrics card */}
         <div className="rounded-md border border-zinc-200 bg-white p-4 sm:p-5 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Days behind" value={studentEntry.daysBehind.toFixed(1)} />
-          <Stat label="Deficit XP" value={studentEntry.deficitTotal.toFixed(0)} />
+          <Stat
+            label="Days behind"
+            value={studentEntry.daysBehind.toFixed(1)}
+          />
+          <Stat
+            label="Deficit XP"
+            value={studentEntry.deficitTotal.toFixed(0)}
+          />
           <Stat
             label="Δ vs prior"
-            value={`${studentEntry.deficitDelta >= 0 ? "+" : ""}${studentEntry.deficitDelta.toFixed(0)}`}
+            value={
+              studentEntry.deficitDelta === null
+                ? "—"
+                : `${studentEntry.deficitDelta >= 0 ? "+" : ""}${studentEntry.deficitDelta.toFixed(0)}`
+            }
           />
-          <Stat
-            label="Severity"
-            value={studentEntry.severity.toFixed(2)}
-          />
+          <Stat label="Severity" value={studentEntry.severity.toFixed(2)} />
         </div>
 
         {/* Subject Targets card (Q8-1 / Q8-2) */}
@@ -151,7 +152,9 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
                     className="py-2 flex flex-wrap items-center justify-between gap-2"
                   >
                     <div>
-                      <div className="font-medium text-zinc-900">{t.subject}</div>
+                      <div className="font-medium text-zinc-900">
+                        {t.subject}
+                      </div>
                       <div className="text-xs text-zinc-500">
                         target {t.avgTargetPerDay} XP/day · hitting{" "}
                         {t.avgActualPerDay} XP/day
@@ -178,7 +181,6 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
           )}
         </div>
 
-        {/* Concerns list */}
         {studentEntry.concerns.length > 0 && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:p-5 mb-4">
             <h2 className="text-sm font-semibold text-amber-900 mb-2">
