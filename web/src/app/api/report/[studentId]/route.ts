@@ -1,32 +1,32 @@
 /**
- * Phase 5 — Student report PDF endpoint (Cycle H stub).
+ * Phase 5 — Student report PDF endpoint (Cycle I — PDF streaming).
  *
  * GET /api/report/<studentId>?scope=eoq|eoy
  *
  * Authorization:
- *   - Must be signed in (NextAuth session). Else 401.
- *   - Head coach sees any student. Else the requested student must belong
- *     to the signed-in coach's roster. Else 403.
+ *   - Must be signed in. Else 401.
+ *   - Head coach sees any student. Else the student's coach email must
+ *     equal the signed-in email. Else 403.
  *
  * Scope:
- *   - "eoq" (default): the current session window from data/sessions.json,
- *     resolved via resolveWindow. If no current session, falls back to 30d.
+ *   - "eoq" (default): current session window via findCurrentSession;
+ *     falls back to "30d" if no current session.
  *   - "eoy": last 365 days.
  *
  * Response:
- *   - 200 application/pdf with Content-Disposition: attachment;
- *     filename="<studentSlug>_<scope>_<dateIso>.pdf"        (Cycle I)
- *   - 401 application/json {"error":"unauthorized"}
- *   - 403 application/json {"error":"forbidden"}
- *   - 404 application/json {"error":"student not found in scope"}
- *   - 503 application/json {"error":"report rendering not yet enabled"}
- *                                                          (Cycle H stub)
+ *   - 200 application/pdf streaming download.
+ *   - 401/403/404 application/json.
  *
- * Per Phase 5 Design Brief Q-Phase5-5: ephemeral. Nothing is stored.
- * Per Q-Phase5-10: no logging of generation events.
+ * Q-Phase5-5: ephemeral — nothing is stored.
+ * Q-Phase5-10: no logging of generation events.
+ *
+ * Runtime: nodejs (required by @react-pdf/renderer which uses Node APIs).
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { Readable } from "node:stream";
+import React from "react";
+import { renderToStream } from "@react-pdf/renderer";
 
 import { auth } from "@/auth";
 import { isHeadCoach } from "@/lib/authz";
@@ -41,8 +41,10 @@ import {
   REPORT_SCOPE_LABEL,
   type ReportScope,
 } from "@/lib/reportData";
+import { StudentReportPDF } from "@/components/report/StudentReportPDF";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function todayIso(): string {
   const d = new Date();
@@ -143,20 +145,21 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 
   const filename = reportFilename(studentId, scope, today);
 
-  return NextResponse.json(
-    {
-      error: "report rendering not yet enabled",
-      detail: "Cycle I will enable PDF generation; data path is verified.",
-      filename,
-      scope: payload.scope,
-      windowLabel: payload.windowLabel,
-      summaryLine: payload.summaryLine,
-    },
-    {
-      status: 503,
-      headers: {
-        "X-Report-Filename": filename,
-      },
-    },
+  // Render the PDF to a Node Readable stream, then convert to a web
+  // ReadableStream so we can hand it back as Response.body. Node 18+
+  // ships Readable.toWeb which produces exactly the shape Response wants.
+  const nodeStream = await renderToStream(
+    React.createElement(StudentReportPDF, { payload }),
   );
+  const webStream = Readable.toWeb(nodeStream as Readable) as ReadableStream;
+
+  return new Response(webStream, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "X-Report-Filename": filename,
+    },
+  });
 }
