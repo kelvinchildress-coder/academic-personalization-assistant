@@ -25,10 +25,10 @@
  *   - Empty input or input that normalizes to an empty string returns "".
  *
  * Examples:
- *   "Lisa C Willis"   -> "lisa-c-willis"
- *   "  José Núñez  "  -> "jose-nunez"
- *   "O'Connor, Ryan"  -> "o-connor-ryan"
- *   ""                -> ""
+ *   "Lisa C Willis"     -> "lisa-c-willis"
+ *   "  José Núñez  "    -> "jose-nunez"
+ *   "O'Connor, Ryan"    -> "o-connor-ryan"
+ *   ""                  -> ""
  */
 export function slugifyName(name: string | null | undefined): string {
   if (!name) return "";
@@ -39,6 +39,14 @@ export function slugifyName(name: string | null | undefined): string {
     .replace(/^-+|-+$/g, "");
   return slug;
 }
+
+/**
+ * Alias export. Several Phase 7 / Phase 8 call sites import `slugify`
+ * from this module (authz.ts, student detail page). Keeping both names
+ * exported lets old call sites and the canonical name co-exist without
+ * a sweeping rename.
+ */
+export const slugify = slugifyName;
 
 /**
  * Build a bidirectional index of coach names <-> slugs from a list of
