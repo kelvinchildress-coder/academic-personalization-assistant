@@ -236,7 +236,13 @@ function computeConcern(
       deficit: m.deficitTotal,
       severity: m.severity,
     }));
-  const kindMap: Record<ConcernCategory, AskKind> = {
+const kindMap: Record<
+    ConcernCategory,
+    | "concern_behind_multiple_days"
+    | "concern_deep_deficit"
+    | "concern_gap_not_closing"
+    | "concern_frequent_exceptions"
+  > = {
     behind_multiple_days: "concern_behind_multiple_days",
     deep_deficit: "concern_deep_deficit",
     gap_not_closing: "concern_gap_not_closing",
