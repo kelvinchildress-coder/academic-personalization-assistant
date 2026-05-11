@@ -1,9 +1,12 @@
 /**
- * Phase 7 Part 8 — Student detail page (Cycle D build-fix).
+ * Phase 7 Part 8 — Student detail page (Cycle I — add report download).
  *
  * Calls aggregateRange, readRange, resolveWindow.
+ *
+ * Phase 5 addition: two download links to /api/report/<studentId> for
+ * end-of-quarter (eoq) and end-of-year (eoy) PDF reports. Plain anchor
+ * tags with `download` attribute — no client JS required.
  */
-
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/Header";
@@ -34,6 +37,7 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const sessions = await getSessions();
   const todayIso = new Date().toISOString().slice(0, 10);
   const currentSession = findCurrentSession(sessions, todayIso);
+
   const wParam = searchParams.w ?? "30d";
   const win = resolveWindow(wParam, sessions, todayIso);
 
@@ -42,7 +46,6 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const currentSnaps = allSnaps.filter(
     (s) => s.date >= win.currentStart && s.date <= win.currentEnd,
   );
-
   const result = aggregateRange(allSnaps, win.currentEnd, {
     currentDays: win.currentDays,
     priorDays: win.priorDays,
@@ -51,8 +54,7 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
   const studentEntry = Object.values(result.perStudent).find(
     (s) => slugify(s.name) === params.studentId,
   );
-  const coachDisplayName =
-    studentEntry?.coach ?? guard.coachName ?? params.coachId;
+  const coachDisplayName = studentEntry?.coach ?? guard.coachName ?? params.coachId;
 
   if (!studentEntry || slugify(studentEntry.coach) !== params.coachId) {
     return (
@@ -78,6 +80,11 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
 
   // Per-subject rollup uses ONLY the current window snapshots.
   const subjectTargets = rollupSubjectTargets(currentSnaps, studentEntry.name);
+
+  // Phase 5: report download URLs. Plain anchors with `download` attribute.
+  const reportBase = `/api/report/${params.studentId}`;
+  const reportEoqHref = `${reportBase}?scope=eoq`;
+  const reportEoyHref = `${reportBase}?scope=eoy`;
 
   return (
     <>
@@ -105,7 +112,6 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
             currentSessionId={currentSession?.id ?? null}
           />
         </div>
-
         <p className="text-sm text-zinc-500 mb-4">
           Coach: {studentEntry.coach} · Window: {win.label} ({win.currentDays}{" "}
           days)
@@ -113,14 +119,8 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
 
         {/* Headline metrics card */}
         <div className="rounded-md border border-zinc-200 bg-white p-4 sm:p-5 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat
-            label="Days behind"
-            value={studentEntry.daysBehind.toFixed(1)}
-          />
-          <Stat
-            label="Deficit XP"
-            value={studentEntry.deficitTotal.toFixed(0)}
-          />
+          <Stat label="Days behind" value={studentEntry.daysBehind.toFixed(1)} />
+          <Stat label="Deficit XP" value={studentEntry.deficitTotal.toFixed(0)} />
           <Stat
             label="Δ vs prior"
             value={
@@ -193,6 +193,33 @@ export default async function StudentDetailPage({ params, searchParams }: Props)
             </ul>
           </div>
         )}
+
+        {/* Phase 5: report download card */}
+        <div className="rounded-md border border-sky-200 bg-sky-50 p-4 sm:p-5 mb-4">
+          <h2 className="text-sm font-semibold text-sky-900 mb-2">
+            Download report
+          </h2>
+          <p className="text-xs text-sky-900/80 mb-3">
+            Generates a PDF summary of {studentEntry.name}&apos;s current
+            standing. Confidential — for school and family use only.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={reportEoqHref}
+              download
+              className="inline-flex items-center rounded-md border border-sky-600 bg-white px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+            >
+              End of quarter
+            </a>
+            <a
+              href={reportEoyHref}
+              download
+              className="inline-flex items-center rounded-md border border-sky-600 bg-white px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+            >
+              End of year
+            </a>
+          </div>
+        </div>
 
         <div className="text-xs text-zinc-500">
           <Link
