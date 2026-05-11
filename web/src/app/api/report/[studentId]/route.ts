@@ -24,10 +24,6 @@
  *
  * Per Phase 5 Design Brief Q-Phase5-5: ephemeral. Nothing is stored.
  * Per Q-Phase5-10: no logging of generation events.
- *
- * Cycle H delivers: full auth + scope + data-assembly path, returning a
- * structured 503 in the final step so `main` keeps building cleanly.
- * Cycle I replaces only the final stub block with the actual PDF stream.
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -58,7 +54,7 @@ function todayIso(): string {
 
 function parseScope(raw: string | null): ReportScope {
   if (raw === "eoy") return "eoy";
-  return "eoq"; // default + any unknown value
+  return "eoq";
 }
 
 interface RouteContext {
@@ -66,7 +62,6 @@ interface RouteContext {
 }
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
-  // ----- Auth -----
   const session = await auth();
   const email = session?.user?.email ?? null;
   if (!email) {
@@ -74,11 +69,9 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   }
   const head = isHeadCoach(email);
 
-  // ----- Scope -----
   const url = new URL(req.url);
   const scope = parseScope(url.searchParams.get("scope"));
 
-  // ----- Window resolution -----
   const sessions = await getSessions();
   const today = todayIso();
 
@@ -91,14 +84,12 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   }
   const win = resolveWindow(windowParam, sessions, today);
 
-  // ----- Fetch snapshots -----
   const currentSnaps = await readRange(win.currentStart, win.currentEnd);
   const priorSnaps =
     win.priorStart && win.priorEnd
       ? await readRange(win.priorStart, win.priorEnd)
       : [];
 
-  // ----- Resolve studentId slug to a real student name -----
   const studentId = ctx.params.studentId;
   let studentName: string | null = null;
   let studentCoach: string | null = null;
@@ -119,20 +110,16 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     );
   }
 
-  // ----- Authorization: head coach passes; otherwise email must map to a
-  //                     coach AND that coach must own this student. -----
   if (!head) {
     const coachName = await resolveCoachByEmail(email);
     if (!coachName) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
-    // StudentSnap.coach is the coach's email in Phase 7 snapshots.
     if (studentCoach.toLowerCase() !== email.toLowerCase()) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
 
-  // ----- Assemble the report payload (pure). -----
   const payload = buildReportPayload({
     studentName,
     schoolName: "Texas Sports Academy",
@@ -154,14 +141,8 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     );
   }
 
-  // ----- Filename (used by Cycle I when the PDF stream is wired up). -----
   const filename = reportFilename(studentId, scope, today);
 
-  // ----- Cycle H stub: return a structured 503 with the resolved metadata.
-  //       Cycle I replaces this block with the @react-pdf/renderer stream
-  //       (renderToStream(<StudentReportPDF payload={payload}/>) piped
-  //       through a Response with Content-Type: application/pdf and the
-  //       Content-Disposition header below).
   return NextResponse.json(
     {
       error: "report rendering not yet enabled",
@@ -174,7 +155,6 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     {
       status: 503,
       headers: {
-        // Hint to Cycle I: this is the header it'll emit alongside the PDF.
         "X-Report-Filename": filename,
       },
     },
