@@ -1,4 +1,4 @@
-\/**
+/**
  * Phase 6 — /ask page (Cycle G build-fix).
  *
  * Server component. The page reads:
@@ -13,15 +13,6 @@
  *     config/coach_emails.json.
  *
  * No write actions. No external fetches outside the existing data layer.
- *
- * Cycle G changes (build-fix only, no behavior change):
- *   - loadSessions()       -> getSessions()        (real export name)
- *   - loadCoachEmailMap()  -> getEmailToCoachMap() (real export name)
- *   - <Header userEmail userName ...> -> <Header trail={...} />
- *     (Header reads session itself; takes only `trail`)
- *   - Removed duplicate <Breadcrumbs items={...} />; Header renders the
- *     breadcrumb internally from `trail`.
- *   - currentSession lookup now uses findCurrentSession helper.
  */
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -66,32 +57,25 @@ export default async function AskPage({ searchParams }: PageProps) {
 
   const sp = await searchParams;
 
-  // ----- Window resolution -----
   const sessions = await getSessions();
   const today = todayIso();
   const win = resolveWindow(sp.w ?? null, sessions, today);
 
-  // ----- AskParams from URL -----
   const usp = new URLSearchParams();
   if (sp.k) usp.set("k", sp.k);
   if (sp.n) usp.set("n", sp.n);
   if (sp.student) usp.set("student", sp.student);
   const askParams = paramsFromUrl(usp);
 
-  // ----- Coach scope + roster map -----
-  // Kept for future coach-display lookups without re-reading the file.
   const coachMap = await getEmailToCoachMap();
   const coachFilter = head ? null : userEmail;
 
-  // ----- Fetch snapshots -----
   const currentSnaps = await readRange(win.currentStart, win.currentEnd);
   const priorSnaps =
     win.priorStart && win.priorEnd
       ? await readRange(win.priorStart, win.priorEnd)
       : [];
 
-  // Build student-name → coach-email map directly from snapshots.
-  // StudentSnap.coach is the coach's email in the Phase 7 snapshot shape.
   const studentNameToCoachEmail = new Map<string, string>();
   for (const day of [...priorSnaps, ...currentSnaps]) {
     for (const stu of day.students) {
@@ -101,7 +85,6 @@ export default async function AskPage({ searchParams }: PageProps) {
     }
   }
 
-  // ----- Run the ask -----
   const answer = runAsk({
     params: askParams,
     currentSnaps,
@@ -117,11 +100,8 @@ export default async function AskPage({ searchParams }: PageProps) {
   });
   const rendered = renderAnswer(answer);
 
-  // Suppress unused-binding warning for coachMap (kept for future
-  // coach-display lookups without re-reading the file).
   void coachMap;
 
-  // Find current session id for the WindowSelector's "Current" optgroup.
   const currentSession = findCurrentSession(sessions, today);
 
   return (
